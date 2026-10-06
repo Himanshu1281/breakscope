@@ -40,7 +40,7 @@ GET /users/{id}  (getUser)  2 call sites
 ```
 Use `--format json` for machine-readable output. Exit codes: `0` no breaking changes, `1` breaking changes, `2` error.
 
-**Status:** v0.1 contract diff is released; `usages` is in progress for v0.2. Tracing changes into your code comes in v0.4. See [docs/ROADMAP.md](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md) and [docs/ARCHITECTURE-v0.1.md](https://github.com/Himanshu1281/breakscope/blob/main/docs/ARCHITECTURE-v0.1.md).
+**Status:** v0.2: contract diff and `usages`. Tracing changes into your code comes in v0.4. See [docs/ROADMAP.md](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md) and [docs/ARCHITECTURE-v0.1.md](https://github.com/Himanshu1281/breakscope/blob/main/docs/ARCHITECTURE-v0.1.md).
 
 ## License
 
