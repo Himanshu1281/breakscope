@@ -60,6 +60,9 @@ OperationKey = tuple[str, str]  # (METHOD, path with parameter names replaced by
 class Contract:
     version: str
     source: str
+    # Path parts of `servers[].url` ("https://api.x.com/v1" -> "/v1"). Client code often
+    # includes them in URLs while the contract's paths do not.
+    base_paths: tuple[str, ...] = ()
     operations: dict[OperationKey, Operation] = field(default_factory=dict)
     # Operations that failed to normalize. The differ ignores these keys on both sides
     # so a broken operation is never reported as removed.

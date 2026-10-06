@@ -53,6 +53,24 @@ Each milestone ends with a **demo gate**: one command, one fixture repo, and one
 
 **Gate:** in `examples/demo`, `usages` finds both the TSX and the Python call sites of `GET /users/{id}`.
 
+**Built (v0.2/v0.3 combined):**
+- Grammars come from the official `tree-sitter-python`, `-javascript` and `-typescript` wheels. `tree-sitter-language-pack` 1.x downloads grammars at runtime, which would break offline use and CI.
+- Also detected: `axios.get<T>()`, `axios({method, url})`, `x.request({...})`, superagent `.del()`, Python `.format()`/`%` URLs, `urlopen`, and same-file constants (`const API_URL = ...`, module-level `BASE_URL = ...`).
+- A ternary or conditional URL yields one call site per branch, so `'/articles' + (feed ? '/feed' : '')` maps to both endpoints.
+- Server route definitions are excluded: Python decorators (`@app.get`, `@router.post`), JS receivers named `app`/`router`/`server`/`fastify`, and any JS call with a callback argument.
+- Matching strips `servers[].url` base paths and `--base-url` prefixes. A literal segment beats a parameter (`/users/me` vs `/users/{id}`), and a dynamic segment never matches a literal one. As a fallback, up to 2 unknown leading segments may be dropped, and those matches are tagged "path prefix guessed".
+- Calls are reported in one of three ways: matched to an operation, unmatched (with the reason, e.g. "has no DELETE operation"), or unresolved (the URL isn't statically known). Unresolved calls are never guessed.
+
+**Real-world check** against the RealWorld spec (19 operations):
+
+| Repo | Operations found | Wrong matches | Unresolved |
+|---|---|---|---|
+| react-redux-realworld-example-app | 19/19 | 0 | 4 (the request wrapper itself) |
+| angular-realworld-example-app | 19/19 | 0 | 0 |
+| fastapi-realworld-example-app (server) | no route decorators reported | 0 | 39 (tests use `url_path_for`) |
+
+**Known limits, carried into M3:** URLs built in another file (a shared `API_ROOT` import), wrapper functions like `requests.get(url)` in a helper that is called elsewhere, and framework URL builders such as `url_path_for` or Angular interceptors that add the base URL.
+
 ---
 
 ## M3 — Impact resolver, v0.4 (3–4 weeks) ← the product

@@ -6,11 +6,14 @@ import typer
 from rich.console import Console
 
 from breakscope import __version__
+from breakscope.analyzers import scan_repo
 from breakscope.changes import Severity
-from breakscope.contracts import diff_files
+from breakscope.contracts import diff_files, load_contract
 from breakscope.errors import BreakScopeError
 from breakscope.reports import json as json_report
 from breakscope.reports import terminal
+from breakscope.reports import usages as usages_report
+from breakscope.usages import index_usages
 
 app = typer.Typer(
     name="breakscope",
@@ -85,6 +88,58 @@ def diff(
 
     breaking = any(c.severity is Severity.BREAKING for c in changes)
     raise typer.Exit(EXIT_BREAKING if breaking else EXIT_OK)
+
+
+@app.command()
+def usages(
+    spec: Annotated[Path, typer.Argument(help="OpenAPI spec (YAML or JSON).")],
+    repo: Annotated[Path, typer.Argument(help="Repository to scan.")] = Path("."),
+    base_url: Annotated[
+        list[str] | None,
+        typer.Option("--base-url", help="Path prefix your code adds to every URL, e.g. /api/v1."),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None, typer.Option("--exclude", help="Glob of files to skip (repeatable).")
+    ] = None,
+    fmt: Annotated[Format, typer.Option("--format", "-f", help="Output format.")] = Format.terminal,
+    show_unused: Annotated[
+        bool, typer.Option("--show-unused", help="List operations with no call sites.")
+    ] = False,
+    show_unresolved: Annotated[
+        bool, typer.Option("--show-unresolved", help="List calls whose URL is not static.")
+    ] = False,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write the report to a file.")
+    ] = None,
+) -> None:
+    """List where your code calls each API operation (Python, TypeScript, JavaScript)."""
+    err = Console(stderr=True)
+    if not repo.is_dir():
+        err.print(f"error: repository directory not found: {repo}", markup=False)
+        raise typer.Exit(EXIT_ERROR)
+    try:
+        contract = load_contract(spec)
+    except BreakScopeError as e:
+        err.print(e.render(), markup=False, highlight=False)
+        raise typer.Exit(EXIT_ERROR) from None
+
+    scan = scan_repo(repo, tuple(exclude or ()))
+    index = index_usages(contract, scan.sites, base_url or ())
+
+    if fmt is Format.json:
+        text = usages_report.render_json(contract, index, scan)
+        if output:
+            output.write_text(text, encoding="utf-8")
+        else:
+            typer.echo(text, nl=False)
+        return
+    kwargs = {"show_unused": show_unused, "show_unresolved": show_unresolved}
+    if output:
+        with output.open("w", encoding="utf-8") as fh:
+            console = Console(file=fh, width=120, no_color=True)
+            usages_report.render_terminal(contract, index, scan, console, **kwargs)
+    else:
+        usages_report.render_terminal(contract, index, scan, Console(highlight=False), **kwargs)
 
 
 @app.command()
