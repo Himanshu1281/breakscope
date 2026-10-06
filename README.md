@@ -28,7 +28,7 @@ BREAKING CHANGES: 4
 Try it on the demo: `breakscope diff examples/demo/api/openapi-v1.yaml examples/demo/api/openapi-v2.yaml`.
 Use `--format json` for machine-readable output. Exit codes: `0` no breaking changes, `1` breaking changes, `2` error.
 
-**Status:** v0.1: contract diff. Tracing changes into your code comes in v0.4. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE-v0.1.md](docs/ARCHITECTURE-v0.1.md).
+**Status:** v0.1: contract diff. Tracing changes into your code comes in v0.4. See [docs/ROADMAP.md](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md) and [docs/ARCHITECTURE-v0.1.md](https://github.com/Himanshu1281/breakscope/blob/main/docs/ARCHITECTURE-v0.1.md).
 
 ## License
 
