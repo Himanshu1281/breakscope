@@ -76,7 +76,7 @@ All commands take `--format json` and `--output FILE`. `analyze` and `usages` ta
 
 No account, no API key, no hosted service. Everything runs locally.
 
-**Status:** v0.4 in progress (impact analysis). Supports OpenAPI 3.0/3.1, Python, TypeScript and JavaScript. See the [roadmap](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md).
+**Status:** v0.4: impact analysis. Supports OpenAPI 3.0/3.1, Python, TypeScript and JavaScript. See the [roadmap](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md).
 
 ## License
 
