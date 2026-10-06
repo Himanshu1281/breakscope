@@ -88,6 +88,28 @@ Each milestone ends with a **demo gate**: one command, one fixture repo, and one
 
 **Gate:** the demo from the pitch, `frontend/UserProfile.tsx:6 {user.name}` reported HIGH, comes out exactly as a snapshot.
 
+**Built:**
+- `breakscope analyze OLD NEW [REPO]` matches call sites against the *old* spec, since that's the one the code was written for. Each change is then mapped to code:
+  - Operation-level changes (endpoint removed, new required parameter, request body changes) point at the call site itself.
+  - Response field changes point at every traced read of that field.
+- **Per-language abstract interpretation** (`impact/flow_js.py`, `impact/flow_py.py`) follows a value through the outermost enclosing function, so a React component's `useEffect` and its JSX are traced together. It tracks whether the value is still a response object or already the parsed body, and the body's field path, so `res.status` is not a field read but `res.data.name` is.
+- **One-hop returns:** a function that returns the response or body (`getUser()`) is followed to its callers in any file, at MEDIUM confidence. Generic names (`get`, `request`, ...) are not followed.
+- **LOW tier:** `x.field` where `x` is named after the schema (`user`, `users`, `currentUser`). Hidden by default; the report says how many are hidden.
+- **Risk** combines severity and confidence: breaking + high gives high risk. Terminal icons show risk, `--fail-on` gates on it, and locations are counted once even when several changes hit the same line.
+- **Accuracy:** [`docs/accuracy.md`](accuracy.md) is generated from `tests/impact/corpus`, where every truly affected line carries an `affected:` marker. CI fails if precision at the default threshold drops below 100% or if the doc is stale. Current numbers: 100% precision, 89% recall at the default threshold.
+
+**Real-world check** (RealWorld spec with `Article.title` removed, `Profile.username` renamed and `DELETE /articles/{slug}` removed):
+
+| Repo | Endpoint removal | Field changes |
+|---|---|---|
+| angular-realworld-example-app | HIGH at the exact call | LOW only: 7 matches, all truly affected |
+| react-redux-realworld-example-app | HIGH at the exact call | LOW only: 3 matches, all truly affected |
+
+Field reads in real apps often happen far from the call: Redux reducers, Angular services that hand data to components through `subscribe(x => this.x = x)`, and `.html` templates. These are the main gaps, and the next things to close:
+- Data passed as component props or stored on `this`
+- Angular service methods followed by class name (`this.articlesService.get` → `ArticlesService.get`)
+- Redux: action payload → reducer → selector
+
 ---
 
 ## M4 — CI and GitHub Action, v0.5 → v1.0 (1–2 weeks)
