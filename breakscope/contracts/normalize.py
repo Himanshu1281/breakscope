@@ -40,7 +40,11 @@ class _Normalizer:
         self._expanding: set[tuple[str, str]] = set()
 
     def contract(self) -> Contract:
-        c = Contract(version=self.spec.version, source=str(self.spec.path))
+        c = Contract(
+            version=self.spec.version,
+            source=str(self.spec.path),
+            base_paths=_base_paths(self.spec.document.get("servers")),
+        )
         paths = self.spec.document.get("paths") or {}
         if not isinstance(paths, dict):
             raise BreakScopeError(
@@ -216,6 +220,20 @@ class _Normalizer:
             format=node.get("format"),
             union=union,
         )
+
+
+def _base_paths(servers: Any) -> tuple[str, ...]:
+    out: list[str] = []
+    for s in servers if isinstance(servers, list) else []:
+        url = str(s.get("url", "")) if isinstance(s, dict) else ""
+        if "://" in url:
+            url = url.split("://", 1)[1]
+            url = url[url.index("/") :] if "/" in url else ""
+        path = "/" + url.strip("/")
+        # Templated server paths ("/{basePath}") cannot be stripped literally.
+        if path != "/" and "{" not in path and path not in out:
+            out.append(path)
+    return tuple(out)
 
 
 def _types(node: dict[str, Any]) -> frozenset[str]:
