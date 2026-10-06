@@ -1,6 +1,6 @@
 """Language-neutral pieces of response data-flow tracing."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from tree_sitter import Node
@@ -53,6 +53,10 @@ class FlowResult:
     # What the enclosing function returns, when it returns (part of) the response.
     returns: Value | None
     function_name: str | None
+    # The class of a method, so `this.userService.get()` can be tied to UserService.get.
+    class_name: str | None = None
+    # Props passed to child components: (Component, {prop: value}).
+    props: list[tuple[str, dict[str, Value]]] = field(default_factory=list)
 
 
 def line_text(source: bytes, node: Node) -> str:

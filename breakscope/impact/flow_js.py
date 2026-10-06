@@ -92,37 +92,105 @@ _PASSES = 4
 
 
 class JSFlow:
-    def __init__(self, source: bytes, call: Node, initial: Value) -> None:
+    """Trace from an HTTP call (`call`, evaluating to `initial`), or from a component
+    function whose props are already known (`component` + `props`)."""
+
+    def __init__(
+        self,
+        source: bytes,
+        call: Node | None,
+        initial: Value | None,
+        *,
+        component: Node | None = None,
+        props: dict[str, Value] | None = None,
+    ) -> None:
         self.source = source
         self.call = call
         self.initial = initial
-        self.scope = outermost_function(call, FUNCTIONS, _CLASS)
+        if component is not None:
+            self.scope = component
+        else:
+            assert call is not None
+            self.scope = outermost_function(call, FUNCTIONS, _CLASS)
         self.env: dict[str, Value] = {}
         self.setters: dict[str, str] = {}  # setUser -> user (React useState)
         self.accesses: dict[tuple[int, int, tuple[str, ...]], Access] = {}
+        # Props this code passes to child components: (Component, {prop: value}).
+        self.props_out: list[tuple[str, dict[str, Value]]] = []
+        if component is not None and props:
+            self._seed_props(component, props)
 
     def run(self) -> FlowResult:
         nodes = list(walk(self.scope))
+        self._fixpoint(nodes)
+        for n in nodes:
+            self._record(n)
+
+        # Fields stored on `this` are read by other methods of the same class.
+        fields = {k: v for k, v in self.env.items() if k.startswith("this.")}
+        body = _enclosing(self.scope, "class_body")
+        if fields and body is not None:
+            inside = (self.scope.start_byte, self.scope.end_byte)
+            rest = [
+                n for n in walk(body) if not (inside[0] <= n.start_byte and n.end_byte <= inside[1])
+            ]
+            self.env = dict(fields)  # locals of other methods are unrelated
+            self._fixpoint(rest)
+            for n in rest:
+                self._record(n)
+
+        return FlowResult(
+            accesses=list(self.accesses.values()),
+            returns=self._returns(),
+            function_name=_function_name(self.scope),
+            class_name=_class_name(self.scope),
+            props=self.props_out,
+        )
+
+    def _fixpoint(self, nodes: list[Node]) -> None:
         for _ in range(_PASSES):
             before = dict(self.env)
             for n in nodes:
                 self._bind(n)
             if self.env == before:
                 break
-        for n in nodes:
-            self._record(n)
-        return FlowResult(
-            accesses=list(self.accesses.values()),
-            returns=self._returns(),
-            function_name=_function_name(self.scope),
-        )
+
+    def _seed_props(self, component: Node, props: dict[str, Value]) -> None:
+        params = component.child_by_field_name("parameters")
+        first = component.child_by_field_name("parameter")
+        if first is None and params is not None and params.named_children:
+            first = params.named_children[0]
+        if first is not None and first.type in ("required_parameter", "optional_parameter"):
+            first = first.child_by_field_name("pattern")
+        if first is None:
+            return
+        if first.type == "identifier":  # props.user
+            for name, v in props.items():
+                self.env[f"{text(first)}.{name}"] = v
+        elif first.type == "object_pattern":  # ({ user })
+            for c in first.named_children:
+                key = (
+                    c
+                    if c.type == "shorthand_property_identifier_pattern"
+                    else (c.child_by_field_name("key") if c.type == "pair_pattern" else None)
+                )
+                if key is None or text(key) not in props:
+                    continue
+                if c.type == "pair_pattern":
+                    self._bind_pattern(c.child_by_field_name("value") or key, props[text(key)])
+                else:
+                    self.env[text(key)] = props[text(key)]
 
     # -- evaluation -----------------------------------------------------------------
 
     def value(self, node: Node | None, depth: int = 0) -> Value | None:
         if node is None or depth > 40:
             return None
-        if node.start_byte == self.call.start_byte and node.end_byte == self.call.end_byte:
+        if (
+            self.call is not None
+            and node.start_byte == self.call.start_byte
+            and node.end_byte == self.call.end_byte
+        ):
             return self.initial
         t = node.type
         if t in _WRAPPERS:
@@ -131,7 +199,13 @@ class JSFlow:
             return self.env.get(text(node))
         if t == "member_expression":
             prop = text(node.child_by_field_name("property"))
-            v = self.value(node.child_by_field_name("object"), depth + 1)
+            obj_node = node.child_by_field_name("object")
+            # `this.user` and `props.user` are tracked as named slots.
+            if obj_node is not None and obj_node.type in ("this", "identifier"):
+                slot = self.env.get(f"{text(obj_node)}.{prop}")
+                if slot is not None:
+                    return slot
+            v = self.value(obj_node, depth + 1)
             if v is None or prop in _NOT_FIELDS:
                 return None
             return v.member(prop)
@@ -218,10 +292,17 @@ class JSFlow:
             self._bind_pattern(name, self.value(value))
         elif t == "assignment_expression":
             left = n.child_by_field_name("left")
-            if left is not None and left.type == "identifier":
-                v = self.value(n.child_by_field_name("right"))
-                if v is not None:
-                    self.env[text(left)] = v
+            v = self.value(n.child_by_field_name("right"))
+            if left is None or v is None:
+                return
+            if left.type == "identifier":
+                self.env[text(left)] = v
+            elif left.type == "member_expression":
+                obj = left.child_by_field_name("object")
+                if obj is not None and obj.type == "this":
+                    self.env[f"this.{text(left.child_by_field_name('property'))}"] = v
+        elif t in ("jsx_self_closing_element", "jsx_opening_element"):
+            self._jsx_props(n)
         elif t == "for_in_statement":
             if "of" not in [text(c) for c in n.children if not c.is_named]:
                 return
@@ -231,6 +312,23 @@ class JSFlow:
                 self._bind_pattern(left, v.element())
         elif t == "call_expression":
             self._bind_call(n)
+
+    def _jsx_props(self, n: Node) -> None:
+        name = n.child_by_field_name("name")
+        component = text(name)
+        if name is None or not component[:1].isupper():
+            return  # <div>, <span>: DOM elements, not components
+        props: dict[str, Value] = {}
+        for attr in n.named_children:
+            if attr.type != "jsx_attribute" or len(attr.named_children) < 2:
+                continue
+            key, value = attr.named_children[0], attr.named_children[1]
+            if value.type == "jsx_expression" and value.named_children:
+                v = self.value(value.named_children[0])
+                if v is not None and v.kind == "body":
+                    props[text(key)] = v
+        if props and (component, props) not in self.props_out:
+            self.props_out.append((component, props))
 
     def _bind_call(self, n: Node) -> None:
         fn = _callee(n)
@@ -403,3 +501,18 @@ def _function_name(fn: Node) -> str | None:
     if parent is not None and parent.type == "pair":
         return text(parent.child_by_field_name("key")) or None
     return None
+
+
+def _enclosing(n: Node, node_type: str) -> Node | None:
+    p = n.parent
+    while p is not None and p.type != node_type:
+        p = p.parent
+    return p
+
+
+def _class_name(fn: Node) -> str | None:
+    body = fn.parent
+    if fn.type != "method_definition" or body is None or body.type != "class_body":
+        return None
+    cls = body.parent
+    return text(cls.child_by_field_name("name")) or None if cls is not None else None

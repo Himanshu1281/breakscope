@@ -13,7 +13,14 @@ export function UserBadge({ id }: { id: number }) {
   }, [id]);
 
   if (!user) return null;
-  return <span title={user.email}>{user.name}</span>; // affected: response.property.removed
+  return (
+    <div>
+      <span title={user.email}>{user.name}</span> {/* affected: response.property.removed */}
+      <UserCard user={user} />
+      <UserLine user={user} />
+      <ProductTag product={{ name: "x" }} />
+    </div>
+  );
 }
 
 export async function greeting(id: number): Promise<string> {
@@ -22,8 +29,16 @@ export async function greeting(id: number): Promise<string> {
 }
 
 export function UserCard(props: { user: User }) {
-  // Prop passed from a parent component: not traced (known gap).
+  // Prop passed from a parent component: traced one hop (MEDIUM).
   return <b>{props.user.name}</b>; // affected: response.property.removed
+}
+
+export function UserLine({ user }: { user: User }) {
+  return <i>{user.name}</i>; // affected: response.property.removed
+}
+
+export function ProductTag({ product }: { product: { name: string } }) {
+  return <i>{product.name}</i>;
 }
 
 export function initials(user: User): string {

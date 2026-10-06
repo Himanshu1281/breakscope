@@ -3,6 +3,7 @@
 import pytest
 from tree_sitter import Parser
 
+from breakscope.analyzers.base import walk
 from breakscope.analyzers.javascript import _LANGS, JavaScriptAnalyzer
 from breakscope.analyzers.python import _LANG as PY_LANG
 from breakscope.analyzers.python import PythonAnalyzer
@@ -136,3 +137,75 @@ def test_scopes_do_not_leak_between_functions() -> None:
         'def b(d):\n    return d["name"]\n'
     )
     assert py_paths(src) == set()
+
+
+def test_js_this_field_is_read_in_other_methods() -> None:
+    src = """
+    class C {
+      async load() { const r = await fetch('/u'); this.user = await r.json(); }
+      title() { return this.user.name; }
+      other() { const user = { name: 1 }; return user.name; }
+    }"""
+    assert js_paths(src, "typescript") == {("name",)}
+
+
+def test_js_this_field_does_not_leak_into_other_classes() -> None:
+    src = """
+    class A { async load() { this.user = (await axios.get('/u')).data; } }
+    class B { title() { return this.user.name; } }"""
+    assert js_paths(src, "typescript") == set()
+
+
+def test_js_props_passed_to_child_components_are_reported() -> None:
+    source = b"""
+    function P() {
+      const [user, setUser] = useState(null);
+      useEffect(() => { fetch('/u').then(r => r.json()).then(u => setUser(u)); }, []);
+      return <div><Card user={user} label="x" /><span title={user.id} /></div>;
+    }"""
+    site = JavaScriptAnalyzer("tsx").scan(source, "a.tsx", is_test=False)[0]
+    root = Parser(_LANGS["tsx"]).parse(source).root_node
+    node = node_at(root, site.start_byte, site.end_byte)
+    assert node is not None
+    result = JSFlow(source, node, initial_value(site)).run()
+    assert [(c, sorted(p)) for c, p in result.props] == [("Card", ["user"])]
+
+
+@pytest.mark.parametrize(
+    ("component", "expected"),
+    [
+        ("function Card(props) { return <b>{props.user.name}</b>; }", {("name",)}),
+        ("function Card({ user }) { return <b>{user.name}</b>; }", {("name",)}),
+        ("const Card = ({ user: u }) => <b>{u.name}</b>;", {("name",)}),
+        ("function Card({ other }) { return <b>{other.name}</b>; }", set()),
+    ],
+)
+def test_js_component_seeded_with_props(component: str, expected: set[tuple[str, ...]]) -> None:
+    from breakscope.impact.flow import Value
+
+    source = component.encode()
+    root = Parser(_LANGS["tsx"]).parse(source).root_node
+    fn = next(n for n in walk(root) if n.type in ("function_declaration", "arrow_function"))
+    result = JSFlow(source, None, None, component=fn, props={"user": Value("body")}).run()
+    assert {a.path for a in result.accesses} == expected
+
+
+def test_py_self_attribute_is_read_in_other_methods() -> None:
+    src = (
+        "class P:\n"
+        '    def load(self):\n        self.data = requests.get("/u").json()\n'
+        '    def name(self):\n        return self.data["name"]\n'
+        '    def other(self, data):\n        return data["name"]\n'
+    )
+    assert py_paths(src) == {("name",)}
+
+
+def test_class_name_is_reported_for_methods() -> None:
+    source = b"class UserService { get(id) { return this.http.get(`/users/${id}`); } }"
+    site = JavaScriptAnalyzer("typescript").scan(source, "a.ts", is_test=False)[0]
+    root = Parser(_LANGS["typescript"]).parse(source).root_node
+    node = node_at(root, site.start_byte, site.end_byte)
+    assert node is not None
+    result = JSFlow(source, node, initial_value(site)).run()
+    assert (result.function_name, result.class_name) == ("get", "UserService")
+    assert result.returns is not None

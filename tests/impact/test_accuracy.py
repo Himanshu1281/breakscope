@@ -6,7 +6,7 @@ def test_precision_and_recall_on_corpus() -> None:
     report, truth = run(), ground_truth()
     default = score(report, truth, Confidence.MEDIUM)
     assert default.precision == 1.0, sorted(detected(report, Confidence.MEDIUM) - truth)
-    assert default.recall >= 0.85, sorted(truth - detected(report, Confidence.MEDIUM))
+    assert default.recall >= 0.95, sorted(truth - detected(report, Confidence.MEDIUM))
     assert score(report, truth, Confidence.LOW).precision >= 0.9
 
 

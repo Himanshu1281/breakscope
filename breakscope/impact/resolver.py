@@ -78,6 +78,17 @@ class _Trace:
     via: str  # "" for direct flow, or "via getUser()" for a one-hop return
 
 
+@dataclass(frozen=True)
+class _Return:
+    """A function that returns (part of) a response: callers continue the trace."""
+
+    key: OperationKey
+    value: Value
+    origin: CallSite
+    class_name: str | None
+    needs_receiver: bool  # generic name: only follow `x.userService.get()` for UserService
+
+
 class _Sources:
     """Parsed files, cached: every phase needs the same trees."""
 
@@ -145,9 +156,15 @@ def analyze(
         changes=changes, files_scanned=scan.files_scanned, call_sites=len(scan.sites)
     )
 
-    # 1. Direct flow from every call site.
     traces: dict[OperationKey, list[_Trace]] = defaultdict(list)
-    returns: dict[str, list[tuple[OperationKey, Value, CallSite]]] = defaultdict(list)
+    returns: dict[str, list[_Return]] = defaultdict(list)
+    props: list[tuple[OperationKey, CallSite, str, dict[str, Value]]] = []
+
+    def keep(key: OperationKey, site: CallSite, conf: Confidence, r: FlowResult, via: str) -> None:
+        traces[key].append(_Trace(key, site, conf, r.accesses, via))
+        props.extend((key, site, component, p) for component, p in r.props)
+
+    # 1. Direct flow from every call site.
     for key, usages in index.by_operation.items():
         for u in usages:
             parsed = sources.get(u.site.file)
@@ -155,10 +172,18 @@ def analyze(
             if parsed is None or node is None:
                 continue
             result = _flow(parsed[0], node, parsed[2], initial_value(u.site))
-            traces[key].append(_Trace(key, u.site, _base_confidence(u), result.accesses, ""))
+            keep(key, u.site, _base_confidence(u), result, "")
             name = result.function_name
-            if result.returns is not None and name and name not in _GENERIC_NAMES:
-                returns[name].append((key, result.returns, u.site))
+            # Generic method names (`get`) are only followed when the receiver names the
+            # class: `this.userService.get()` -> UserService.get.
+            if (
+                result.returns is not None
+                and name
+                and (name not in _GENERIC_NAMES or result.class_name)
+            ):
+                returns[name].append(
+                    _Return(key, result.returns, u.site, result.class_name, name in _GENERIC_NAMES)
+                )
 
     # 2. One hop: callers of functions that return the response, in any file.
     if returns:
@@ -168,15 +193,29 @@ def analyze(
             if parsed is None:
                 continue
             source, root, lang = parsed
-            for call, name in _calls_by_name(root, lang, returns.keys()):
-                for key, value, origin in returns[name]:
+            for call, name, receiver in _calls_by_name(root, lang, returns.keys()):
+                for ret in returns[name]:
+                    origin = ret.origin
                     if origin.file == rel and call.start_byte <= origin.start_byte < call.end_byte:
                         continue
-                    result = _flow(source, call, lang, value)
+                    if ret.needs_receiver and not _receiver_matches(receiver, ret.class_name):
+                        continue
+                    result = _flow(source, call, lang, ret.value)
                     site = _site_for(call, rel, lang, source, origin)
-                    traces[key].append(
-                        _Trace(key, site, Confidence.MEDIUM, result.accesses, f"via {name}()")
-                    )
+                    label = f"{ret.class_name}.{name}()" if ret.class_name else f"{name}()"
+                    keep(ret.key, site, Confidence.MEDIUM, result, f"via {label}")
+
+    # 2b. One hop into child components: <UserCard user={user} />.
+    if props:
+        components = _component_index(repo, exclude, sources)
+        for key, site, component, values in props:
+            for rel, fn in components.get(component, []):
+                parsed = sources.get(rel)
+                if parsed is None:
+                    continue
+                result = JSFlow(parsed[0], None, None, component=fn, props=values).run()
+                via = f"via <{component} {' '.join(f'{k}=...' for k in values)}>"
+                traces[key].append(_Trace(key, site, Confidence.MEDIUM, result.accesses, via))
 
     # 3. Map each change to locations.
     for change in changes:
@@ -243,10 +282,13 @@ def _field_impacts(change: APIChange, traces: list[_Trace]) -> list[Impact]:
     return out
 
 
-def _calls_by_name(root: Node, lang: str, names: Iterable[str]) -> list[tuple[Node, str]]:
+def _calls_by_name(
+    root: Node, lang: str, names: Iterable[str]
+) -> list[tuple[Node, str, str | None]]:
+    """Calls to any of `names`, with the receiver text for method calls (`this.userService`)."""
     wanted = set(names)
     call_type = "call" if lang == "python" else "call_expression"
-    out: list[tuple[Node, str]] = []
+    out: list[tuple[Node, str, str | None]] = []
     for n in walk(root):
         if n.type != call_type:
             continue
@@ -255,17 +297,57 @@ def _calls_by_name(root: Node, lang: str, names: Iterable[str]) -> list[tuple[No
             fn = fn.named_children[0] if fn.named_children else None
         if fn is None:
             continue
+        receiver: str | None = None
         if fn.type == "identifier":
             name = text(fn)
         elif fn.type == "member_expression":
             name = text(fn.child_by_field_name("property"))
+            receiver = text(fn.child_by_field_name("object"))
         elif fn.type == "attribute":
             name = text(fn.child_by_field_name("attribute"))
+            receiver = text(fn.child_by_field_name("object"))
         else:
             continue
         if name in wanted:
-            out.append((n, name))
+            out.append((n, name, receiver))
     return out
+
+
+def _norm(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _receiver_matches(receiver: str | None, class_name: str | None) -> bool:
+    """`this.userService` / `self.user_service` / `userService` name the UserService class."""
+    if not receiver or not class_name:
+        return False
+    return _norm(receiver.rsplit(".", 1)[-1]) == _norm(class_name)
+
+
+def _component_index(
+    repo: Path, exclude: tuple[str, ...], sources: "_Sources"
+) -> dict[str, list[tuple[str, Node]]]:
+    """Capitalized function components by name: `function UserCard(...)`,
+    `const UserCard = (...) => ...`."""
+    index: dict[str, list[tuple[str, Node]]] = defaultdict(list)
+    for path in iter_source_files(repo, exclude):
+        rel = path.relative_to(repo).as_posix()
+        parsed = sources.get(rel)
+        if parsed is None or parsed[2] == "python":
+            continue
+        for n in walk(parsed[1]):
+            name: Node | None = None
+            if n.type == "function_declaration":
+                name = n.child_by_field_name("name")
+            elif (
+                n.type in ("arrow_function", "function_expression")
+                and n.parent is not None
+                and n.parent.type == "variable_declarator"
+            ):
+                name = n.parent.child_by_field_name("name")
+            if name is not None and text(name)[:1].isupper():
+                index[text(name)].append((rel, n))
+    return index
 
 
 def _site_for(call: Node, rel: str, lang: str, source: bytes, origin: CallSite) -> CallSite:

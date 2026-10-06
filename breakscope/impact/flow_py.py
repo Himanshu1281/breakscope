@@ -64,20 +64,48 @@ class PyFlow:
 
     def run(self) -> FlowResult:
         nodes = list(walk(self.scope))
+        self._fixpoint(nodes)
+        for n in nodes:
+            self._record(n)
+
+        # Attributes stored on `self` are read by other methods of the same class.
+        fields = {k: v for k, v in self.env.items() if k.startswith("self.")}
+        cls = self._class()
+        if fields and cls is not None:
+            inside = (self.scope.start_byte, self.scope.end_byte)
+            rest = [
+                n for n in walk(cls) if not (inside[0] <= n.start_byte and n.end_byte <= inside[1])
+            ]
+            self.env = dict(fields)  # locals of other methods are unrelated
+            self._fixpoint(rest)
+            for n in rest:
+                self._record(n)
+
+        name = self.scope.child_by_field_name("name") if self.scope.type in FUNCTIONS else None
+        cls_name = cls.child_by_field_name("name") if cls is not None else None
+        return FlowResult(
+            accesses=list(self.accesses.values()),
+            returns=self._returns(),
+            function_name=text(name) or None,
+            class_name=text(cls_name) or None,
+        )
+
+    def _fixpoint(self, nodes: list[Node]) -> None:
         for _ in range(_PASSES):
             before = dict(self.env)
             for n in nodes:
                 self._bind(n)
             if self.env == before:
                 break
-        for n in nodes:
-            self._record(n)
-        name = self.scope.child_by_field_name("name") if self.scope.type in FUNCTIONS else None
-        return FlowResult(
-            accesses=list(self.accesses.values()),
-            returns=self._returns(),
-            function_name=text(name) or None,
-        )
+
+    def _class(self) -> Node | None:
+        """The class whose method is being traced, if any."""
+        if self.scope.type != "function_definition":
+            return None
+        p = self.scope.parent
+        while p is not None and p.type in ("block", "decorated_definition"):
+            p = p.parent
+        return p if p is not None and p.type == "class_definition" else None
 
     def value(self, node: Node | None, depth: int = 0) -> Value | None:
         if node is None or depth > 40:
@@ -100,8 +128,11 @@ class PyFlow:
                 return v.element()
             return None
         if t == "attribute":
-            v = self.value(node.child_by_field_name("object"), depth + 1)
+            obj_node = node.child_by_field_name("object")
             attr = text(node.child_by_field_name("attribute"))
+            if obj_node is not None and text(obj_node) == "self":
+                return self.env.get(f"self.{attr}")
+            v = self.value(obj_node, depth + 1)
             if v is None or attr in _NOT_FIELDS:
                 return None
             if v.kind == "response":
@@ -132,10 +163,13 @@ class PyFlow:
         t = n.type
         if t == "assignment":
             left = n.child_by_field_name("left")
-            if left is not None and left.type == "identifier":
-                v = self.value(n.child_by_field_name("right"))
-                if v is not None:
-                    self.env[text(left)] = v
+            v = self.value(n.child_by_field_name("right"))
+            if left is None or v is None:
+                return
+            if left.type == "identifier":
+                self.env[text(left)] = v
+            elif left.type == "attribute" and text(left.child_by_field_name("object")) == "self":
+                self.env[f"self.{text(left.child_by_field_name('attribute'))}"] = v
         elif t in ("for_statement", "for_in_clause"):
             left, right = n.child_by_field_name("left"), n.child_by_field_name("right")
             v = self.value(right)

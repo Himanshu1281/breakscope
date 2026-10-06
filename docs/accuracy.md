@@ -9,12 +9,10 @@ precision at the default threshold drops below 100%.
 
 | Shown at confidence | Precision | Recall | Found / truly affected |
 |---|---|---|---|
-| high only | 100% | 79% | 15 / 19 |
-| medium+ (default) | 100% | 89% | 17 / 19 |
-| low+ | 100% | 95% | 18 / 19 |
+| high only | 100% | 71% | 17 / 24 |
+| medium+ (default) | 100% | 96% | 23 / 24 |
+| low+ | 100% | 100% | 24 / 24 |
 
 ## Known misses
 
-Truly affected lines that no confidence level finds:
-
-- `web/src/components/UserBadge.tsx:26` (response.property.removed)
+None.
