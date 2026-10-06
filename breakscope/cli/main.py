@@ -10,6 +10,9 @@ from breakscope.analyzers import scan_repo
 from breakscope.changes import Severity
 from breakscope.contracts import diff_files, load_contract
 from breakscope.errors import BreakScopeError
+from breakscope.impact import analyze as run_analysis
+from breakscope.impact.models import Confidence, Risk
+from breakscope.reports import impact as impact_report
 from breakscope.reports import json as json_report
 from breakscope.reports import terminal
 from breakscope.reports import usages as usages_report
@@ -142,8 +145,70 @@ def usages(
         usages_report.render_terminal(contract, index, scan, Console(highlight=False), **kwargs)
 
 
+class FailOn(StrEnum):
+    high = "high"
+    medium = "medium"
+    low = "low"
+    never = "never"
+
+
 @app.command()
-def analyze() -> None:
-    """Trace API changes into your codebase."""
-    typer.echo("analyze: coming in v0.4", err=True)
-    raise typer.Exit(EXIT_ERROR)
+def analyze(
+    old: Annotated[Path, typer.Argument(help="Old OpenAPI spec (what the code was written for).")],
+    new: Annotated[Path, typer.Argument(help="New OpenAPI spec.")],
+    repo: Annotated[Path, typer.Argument(help="Repository to scan.")] = Path("."),
+    min_confidence: Annotated[
+        Confidence, typer.Option("--min-confidence", help="Hide less certain locations.")
+    ] = Confidence.MEDIUM,
+    fail_on: Annotated[
+        FailOn, typer.Option("--fail-on", help="Exit 1 when a location has this risk or higher.")
+    ] = FailOn.high,
+    base_url: Annotated[
+        list[str] | None,
+        typer.Option("--base-url", help="Path prefix your code adds to every URL, e.g. /api/v1."),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None, typer.Option("--exclude", help="Glob of files to skip (repeatable).")
+    ] = None,
+    fmt: Annotated[Format, typer.Option("--format", "-f", help="Output format.")] = Format.terminal,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write the report to a file.")
+    ] = None,
+) -> None:
+    """Find the code that is likely to break when the API changes from OLD to NEW.
+
+    Exit code 0: nothing at or above --fail-on. 1: affected code found. 2: error.
+    """
+    err = Console(stderr=True)
+    if not repo.is_dir():
+        err.print(f"error: repository directory not found: {repo}", markup=False)
+        raise typer.Exit(EXIT_ERROR)
+    try:
+        report = run_analysis(
+            load_contract(old),
+            load_contract(new),
+            repo,
+            base_paths=base_url or (),
+            exclude=tuple(exclude or ()),
+        )
+    except BreakScopeError as e:
+        err.print(e.render(), markup=False, highlight=False)
+        raise typer.Exit(EXIT_ERROR) from None
+
+    shown = [i for i in report.impacts if i.confidence.rank <= min_confidence.rank]
+    if fmt is Format.json:
+        text = impact_report.render_json(report, shown)
+        if output:
+            output.write_text(text, encoding="utf-8")
+        else:
+            typer.echo(text, nl=False)
+    elif output:
+        with output.open("w", encoding="utf-8") as fh:
+            impact_report.render_terminal(report, shown, Console(file=fh, width=120, no_color=True))
+    else:
+        impact_report.render_terminal(report, shown, Console(highlight=False))
+
+    if fail_on is not FailOn.never:
+        threshold = Risk(fail_on.value).rank
+        if any(i.risk.rank <= threshold for i in shown):
+            raise typer.Exit(EXIT_BREAKING)

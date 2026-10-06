@@ -17,8 +17,40 @@ def test_version() -> None:
     assert __version__ in result.output
 
 
-def test_analyze_stub_exits_2() -> None:
-    assert runner.invoke(app, ["analyze"]).exit_code == 2
+def test_analyze_demo() -> None:
+    result = runner.invoke(app, ["analyze", V1, V2, str(DEMO.parents[1] / "demo")])
+    assert result.exit_code == 1, result.output
+    assert "frontend/src/components/UserProfile.tsx:18" in result.output
+    assert "<h1>{user.name}</h1>" in result.output
+    assert "backend/services/user_report.py:12" in result.output
+    assert "Locations affected: 4" in result.output
+    assert "Risk: HIGH" in result.output
+
+
+def test_analyze_fail_on_never_exits_0() -> None:
+    demo = str(DEMO.parents[1] / "demo")
+    assert runner.invoke(app, ["analyze", V1, V2, demo, "--fail-on", "never"]).exit_code == 0
+
+
+def test_analyze_no_changes_exits_0() -> None:
+    result = runner.invoke(app, ["analyze", V1, V1, str(DEMO.parents[1] / "demo")])
+    assert result.exit_code == 0
+    assert "No contract changes" in result.output
+
+
+def test_analyze_json() -> None:
+    result = runner.invoke(app, ["analyze", V1, V2, str(DEMO.parents[1] / "demo"), "-f", "json"])
+    doc = json.loads(result.output)
+    assert doc["summary"]["risk"] == "high"
+    removed = next(c for c in doc["changes"] if c["subject"] == "User.name")
+    assert {(i["file"], i["confidence"]) for i in removed["impacts"]} == {
+        ("frontend/src/components/UserProfile.tsx", "high"),
+        ("backend/services/user_report.py", "high"),
+    }
+
+
+def test_analyze_bad_repo_exits_2() -> None:
+    assert runner.invoke(app, ["analyze", V1, V2, "no-such-dir"]).exit_code == 2
 
 
 def test_diff_breaking_exits_1() -> None:
