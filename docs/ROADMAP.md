@@ -32,7 +32,7 @@ Each milestone ends with a **demo gate**: one command, one fixture repo, and one
 4. **Field paths:** every change carries a `field_path` such as `["name"]` or `["items", "[]", "status"]`. This path is the bridge to code analysis later, so get it right now.
 5. **Reporters:** terminal (rich) and JSON. The JSON schema is versioned (`"schema_version": 1`).
 6. **Exit codes:** `0` no breaking changes, `1` breaking changes found, `2` usage or parse error.
-7. **Tests:** at least 25 rule fixtures, each a minimal `old.yaml`/`new.yaml` pair with a snapshot. Also test against 3 real-world specs (for example the Petstore, GitHub and Stripe subsets) to catch crashes.
+7. **Tests:** at least 25 rule fixtures, each a minimal `old.yaml`/`new.yaml` pair with a snapshot. Also test against real-world specs to catch crashes. (v0.1 has the 5 OAI example specs; large ones like GitHub and Stripe are still to add.)
 
 **Gate:** `breakscope diff examples/demo/api/openapi-v1.yaml examples/demo/api/openapi-v2.yaml` reports `response.property.removed GET /users/{id} name`.
 
@@ -104,4 +104,4 @@ Dashboard, SaaS, accounts, GraphQL/gRPC/AsyncAPI, languages beyond Python/TS/JS,
 | False positives destroy trust | Confidence tiers. LOW is hidden by default. Track precision in CI. |
 | Custom HTTP wrappers hide URLs | Config `clients: [{ name: "api", base_url: "/v1" }]`, then generated-client support |
 | `$ref`/`allOf` edge cases crash the diff | Real-world spec corpus in tests. Fail per-operation, not globally. |
-| Scope creep into a better diff tool | Diff rule catalog is frozen at about 25 rules for 1.0. Effort goes into the resolver. |
+| Scope creep into a better diff tool | Diff rule catalog is frozen at about 30 rules for 1.0. Effort goes into the resolver. |

@@ -10,7 +10,25 @@ pip install breakscope
 breakscope diff openapi-old.yaml openapi-new.yaml
 ```
 
-**Status:** pre-alpha. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE-v0.1.md](docs/ARCHITECTURE-v0.1.md).
+```text
+BREAKING CHANGES: 4
+
+🔴 response.property.removed  User.name
+   A response property was removed.
+   affects 3 operations:
+     GET /users -> 200
+     POST /users -> 201
+     GET /users/{userId} -> 200
+
+🔴 request.property.became_required  POST /users
+   [request] `email` is now required
+...
+```
+
+Try it on the demo: `breakscope diff examples/demo/api/openapi-v1.yaml examples/demo/api/openapi-v2.yaml`.
+Use `--format json` for machine-readable output. Exit codes: `0` no breaking changes, `1` breaking changes, `2` error.
+
+**Status:** v0.1 (contract diff) in progress. Tracing changes into your code comes in v0.4. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE-v0.1.md](docs/ARCHITECTURE-v0.1.md).
 
 ## License
 

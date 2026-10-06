@@ -1,0 +1,799 @@
+# serializer version: 1
+# name: test_rule_fixture[endpoint.added]
+  list([
+    dict({
+      'direction': None,
+      'field_path': list([
+      ]),
+      'message': 'DELETE /items/{id} was added',
+      'method': 'DELETE',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'endpoint.added',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'info',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[endpoint.removed]
+  list([
+    dict({
+      'direction': None,
+      'field_path': list([
+      ]),
+      'message': 'PUT /items/{id} was removed',
+      'method': 'PUT',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'endpoint.removed',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[parameter.added.optional]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'o',
+      ]),
+      'message': 'new optional query parameter `o`',
+      'method': 'GET',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'parameter.added.optional',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'info',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[parameter.added.required]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'r',
+      ]),
+      'message': 'new required query parameter `r`',
+      'method': 'GET',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'parameter.added.required',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[parameter.became_required]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'q',
+      ]),
+      'message': 'query parameter `q` is now required',
+      'method': 'GET',
+      'new': True,
+      'old': False,
+      'path': '/items/{id}',
+      'rule': 'parameter.became_required',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[parameter.enum.value_removed]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'q',
+      ]),
+      'message': "`q` no longer accepts 'b'",
+      'method': 'GET',
+      'new': list([
+        'a',
+      ]),
+      'old': list([
+        'a',
+        'b',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'parameter.enum.value_removed',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[parameter.removed]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'q',
+      ]),
+      'message': 'query parameter `q` was removed',
+      'method': 'GET',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'parameter.removed',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[parameter.type.changed]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'q',
+      ]),
+      'message': '`q` type changed from string to integer',
+      'method': 'GET',
+      'new': list([
+        'integer',
+      ]),
+      'old': list([
+        'string',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'parameter.type.changed',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.body.added.required]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+      ]),
+      'message': 'a request body is now required',
+      'method': 'PUT',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'request.body.added.required',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.body.became_required]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+      ]),
+      'message': 'the request body is now required',
+      'method': 'PUT',
+      'new': True,
+      'old': False,
+      'path': '/items/{id}',
+      'rule': 'request.body.became_required',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.media_type.removed]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+      ]),
+      'message': 'request media type application/json is no longer accepted',
+      'method': 'PUT',
+      'new': None,
+      'old': 'application/json',
+      'path': '/items/{id}',
+      'rule': 'request.media_type.removed',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.property.added.required]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'owner',
+      ]),
+      'message': 'new required property `owner`',
+      'method': 'PUT',
+      'new': list([
+        'string',
+      ]),
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'request.property.added.required',
+      'schema_name': 'ItemInput',
+      'schema_path': list([
+        'owner',
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.property.became_required]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'name',
+      ]),
+      'message': '`name` is now required',
+      'method': 'PUT',
+      'new': True,
+      'old': False,
+      'path': '/items/{id}',
+      'rule': 'request.property.became_required',
+      'schema_name': 'ItemInput',
+      'schema_path': list([
+        'name',
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.property.enum.value_removed]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'kind',
+      ]),
+      'message': "`kind` no longer accepts 'y'",
+      'method': 'PUT',
+      'new': list([
+        'x',
+      ]),
+      'old': list([
+        'x',
+        'y',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'request.property.enum.value_removed',
+      'schema_name': 'ItemInput',
+      'schema_path': list([
+        'kind',
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.property.removed]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'count',
+      ]),
+      'message': '`count` was removed',
+      'method': 'PUT',
+      'new': None,
+      'old': list([
+        'integer',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'request.property.removed',
+      'schema_name': 'ItemInput',
+      'schema_path': list([
+        'count',
+      ]),
+      'severity': 'warning',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[request.property.type.changed]
+  list([
+    dict({
+      'direction': 'request',
+      'field_path': list([
+        'count',
+      ]),
+      'message': '`count` type changed from integer to string',
+      'method': 'PUT',
+      'new': list([
+        'string',
+      ]),
+      'old': list([
+        'integer',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'request.property.type.changed',
+      'schema_name': 'ItemInput',
+      'schema_path': list([
+        'count',
+      ]),
+      'severity': 'breaking',
+      'status_code': None,
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.enum.value_added]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'status',
+      ]),
+      'message': "`status` can now be 'paused'",
+      'method': 'GET',
+      'new': list([
+        'on',
+        'off',
+        'paused',
+      ]),
+      'old': list([
+        'on',
+        'off',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.enum.value_added',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'status',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'status',
+      ]),
+      'message': "`status` can now be 'paused'",
+      'method': 'PUT',
+      'new': list([
+        'on',
+        'off',
+        'paused',
+      ]),
+      'old': list([
+        'on',
+        'off',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.enum.value_added',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'status',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.enum.value_removed]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'status',
+      ]),
+      'message': "`status` is no longer 'off'",
+      'method': 'GET',
+      'new': list([
+        'on',
+      ]),
+      'old': list([
+        'on',
+        'off',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.enum.value_removed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'status',
+      ]),
+      'severity': 'info',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'status',
+      ]),
+      'message': "`status` is no longer 'off'",
+      'method': 'PUT',
+      'new': list([
+        'on',
+      ]),
+      'old': list([
+        'on',
+        'off',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.enum.value_removed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'status',
+      ]),
+      'severity': 'info',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.media_type.removed]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+      ]),
+      'message': '200 response no longer returns application/json',
+      'method': 'GET',
+      'new': None,
+      'old': 'application/json',
+      'path': '/items/{id}',
+      'rule': 'response.media_type.removed',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.property.added]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'color',
+      ]),
+      'message': '`color` was added',
+      'method': 'GET',
+      'new': list([
+        'string',
+      ]),
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'response.property.added',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'color',
+      ]),
+      'severity': 'info',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'color',
+      ]),
+      'message': '`color` was added',
+      'method': 'PUT',
+      'new': list([
+        'string',
+      ]),
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'response.property.added',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'color',
+      ]),
+      'severity': 'info',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.property.became_nullable]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'name',
+      ]),
+      'message': '`name` can now be null',
+      'method': 'GET',
+      'new': True,
+      'old': False,
+      'path': '/items/{id}',
+      'rule': 'response.property.became_nullable',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'name',
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'name',
+      ]),
+      'message': '`name` can now be null',
+      'method': 'PUT',
+      'new': True,
+      'old': False,
+      'path': '/items/{id}',
+      'rule': 'response.property.became_nullable',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'name',
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.property.became_optional]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'name',
+      ]),
+      'message': '`name` is no longer always present',
+      'method': 'GET',
+      'new': False,
+      'old': True,
+      'path': '/items/{id}',
+      'rule': 'response.property.became_optional',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'name',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'name',
+      ]),
+      'message': '`name` is no longer always present',
+      'method': 'PUT',
+      'new': False,
+      'old': True,
+      'path': '/items/{id}',
+      'rule': 'response.property.became_optional',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'name',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.property.format.changed]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'created',
+      ]),
+      'message': '`created` format changed from date-time to date',
+      'method': 'GET',
+      'new': 'date',
+      'old': 'date-time',
+      'path': '/items/{id}',
+      'rule': 'response.property.format.changed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'created',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'created',
+      ]),
+      'message': '`created` format changed from date-time to date',
+      'method': 'PUT',
+      'new': 'date',
+      'old': 'date-time',
+      'path': '/items/{id}',
+      'rule': 'response.property.format.changed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'created',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.property.removed]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'name',
+      ]),
+      'message': '`name` was removed',
+      'method': 'GET',
+      'new': None,
+      'old': list([
+        'string',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.property.removed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'name',
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'name',
+      ]),
+      'message': '`name` was removed',
+      'method': 'PUT',
+      'new': None,
+      'old': list([
+        'string',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.property.removed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'name',
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.property.type.changed]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'id',
+      ]),
+      'message': '`id` type changed from integer to string',
+      'method': 'GET',
+      'new': list([
+        'string',
+      ]),
+      'old': list([
+        'integer',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.property.type.changed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'id',
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'id',
+      ]),
+      'message': '`id` type changed from integer to string',
+      'method': 'PUT',
+      'new': list([
+        'string',
+      ]),
+      'old': list([
+        'integer',
+      ]),
+      'path': '/items/{id}',
+      'rule': 'response.property.type.changed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'id',
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[response.status.removed]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+      ]),
+      'message': 'status 200 is no longer returned',
+      'method': 'GET',
+      'new': None,
+      'old': '200',
+      'path': '/items/{id}',
+      'rule': 'response.status.removed',
+      'schema_name': None,
+      'schema_path': list([
+      ]),
+      'severity': 'breaking',
+      'status_code': '200',
+    }),
+  ])
+# ---
+# name: test_rule_fixture[schema.union.changed]
+  list([
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'shape',
+      ]),
+      'message': '`shape` oneOf/anyOf changed',
+      'method': 'GET',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'schema.union.changed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'shape',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+    dict({
+      'direction': 'response',
+      'field_path': list([
+        'shape',
+      ]),
+      'message': '`shape` oneOf/anyOf changed',
+      'method': 'PUT',
+      'new': None,
+      'old': None,
+      'path': '/items/{id}',
+      'rule': 'schema.union.changed',
+      'schema_name': 'Item',
+      'schema_path': list([
+        'shape',
+      ]),
+      'severity': 'warning',
+      'status_code': '200',
+    }),
+  ])
+# ---
