@@ -25,9 +25,10 @@ breakscope/
 │   ├── loader.py          # read file / git ref → dict; detect openapi version
 │   ├── resolver.py        # $ref resolution, cycle-safe, records origin component name
 │   ├── normalize.py       # dict → Contract (3.0 + 3.1 → one model)
-│   ├── model.py           # Contract, Operation, Parameter, Schema
+│   ├── model.py           # Contract, Operation, Parameter, Schema (plain dataclasses)
 │   ├── diff.py            # Contract × Contract → list[APIChange]
-│   └── rules.py           # rule catalog: id, default severity, description
+│   ├── rules.py           # rule catalog: id, default severity, description
+│   └── __init__.py        # load_contract(), diff_files()
 ├── changes.py             # APIChange, Severity, ChangeKind — the shared contract for everything downstream
 ├── reports/
 │   ├── terminal.py        # rich
@@ -58,7 +59,8 @@ class APIChange(BaseModel, frozen=True):
     direction: Direction | None
     status_code: str | None    # "200", "default"
     field_path: tuple[str, ...]  # ("items", "[]", "name"); "[]" = array element
-    schema_name: str | None    # "User" if the field came from components/schemas/User
+    schema_name: str | None    # nearest named schema owning the field: "User"
+    schema_path: tuple[str, ...]  # field path relative to schema_name: ("name",)
     old: Any | None
     new: Any | None
     message: str               # human-readable one-liner
@@ -74,7 +76,8 @@ class APIChange(BaseModel, frozen=True):
 
 ```python
 # contracts/model.py
-class Schema(BaseModel):
+@dataclass(frozen=True, eq=False)
+class Schema:
     types: frozenset[str]          # {"string"}, {"string","null"}; nullable folded in
     properties: dict[str, "Schema"]
     required: frozenset[str]
@@ -83,7 +86,7 @@ class Schema(BaseModel):
     format: str | None
     union: tuple["Schema", ...] | None   # oneOf/anyOf, compared opaquely in v0.1
     ref_name: str | None
-    additional_properties: "bool | Schema"
+    recursive: bool                # placeholder for a schema already being expanded
 
 class Parameter(BaseModel):
     name: str; location: Literal["path","query","header","cookie"]
@@ -135,15 +138,17 @@ Breaking-ness depends on direction. Making a *response* field optional breaks re
 | `response.property.added` | info |
 | `schema.union.changed` | warning (opaque in v0.1) |
 
-The differ recurses through `properties` and `items` and builds up `field_path`. Each rule is a small function `(old, new, ctx) -> Iterable[APIChange]` registered in `rules.py`, so adding a rule never touches the walker.
+Also implemented: `request.body.became_required` and `request.media_type.removed` (both breaking), for 27 rules in total.
+
+The differ recurses through `properties` and `items` and builds up `field_path`. `rules.py` is the catalog of rule ids, severities and descriptions. The rule logic itself lives in the walker in `diff.py`, which turned out simpler than one function per rule. Every rule has a fixture, and a test fails if a rule exists without one.
 
 ## Key decisions
 
 | Decision | Choice | Why |
 |---|---|---|
 | Spec parsing | PyYAML (`CSafeLoader`) + own resolver | We need `ref_name` provenance, which most resolvers throw away. `openapi-spec-validator` is only an optional `--validate` step. |
-| Models | Pydantic v2, frozen | Free JSON serialization for the JSON reporter, and hashable keys |
-| Recursive schemas | Resolver keeps a visited set and emits a `RecursiveRef(name)` sentinel. The differ compares sentinels by name. | Avoids infinite recursion on `Node.children: [Node]` |
+| Models | Pydantic v2 for `APIChange`; plain frozen dataclasses for the contract model | `APIChange` gets JSON serialization for free. The contract model is internal and recursive, where dataclasses are simpler and faster. |
+| Recursive schemas | The normalizer tracks the refs it is expanding and emits `Schema(ref_name=..., recursive=True)` on a cycle. The differ stops at these placeholders. | Avoids infinite recursion on `Node.children: [Node]` |
 | Determinism | Changes are sorted by `(path, method, direction, field_path, rule)` | Stable snapshots and stable PR comments |
 | Errors | Each error has a message, a file and JSON pointer, and a hint | Developer tools live or die by their error messages |
 | Partial failure | One broken operation logs a warning and is skipped; the diff of the rest continues | Real specs are messy |
@@ -166,6 +171,8 @@ Removing `User.name` when `User` is used by 8 operations must not print 8 unrela
 breakscope diff OLD NEW [--format terminal|json] [--min-severity breaking|warning|info] [--output FILE]
 ```
 
+- `--min-severity` defaults to `warning`, so non-breaking additions are hidden unless asked for. It only filters the output; the exit code always reflects breaking changes.
+- `additionalProperties` is not modelled in v0.1.
 - `OLD`/`NEW` accept paths now. `git:<ref>:<path>` comes in v0.5.
 - Exit codes: `0` no breaking changes, `1` breaking changes present, `2` error.
 

@@ -1,0 +1,63 @@
+openapi: 3.0.3
+info:
+  title: Fixture
+  version: '1'
+paths:
+  /items/{id}:
+    get:
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: q
+        in: query
+        schema:
+          type: string
+          enum:
+          - a
+          - b
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+components:
+  schemas:
+    Item:
+      type: object
+      required:
+      - id
+      - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - 'on'
+          - 'off'
+        created:
+          type: string
+          format: date-time
+        shape:
+          oneOf:
+          - type: string
+          - type: integer
+    ItemInput:
+      type: object
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - x
+          - y
+        count:
+          type: integer
