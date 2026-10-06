@@ -105,10 +105,25 @@ Each milestone ends with a **demo gate**: one command, one fixture repo, and one
 | angular-realworld-example-app | HIGH at the exact call | LOW only: 7 matches, all truly affected |
 | react-redux-realworld-example-app | HIGH at the exact call | LOW only: 3 matches, all truly affected |
 
-Field reads in real apps often happen far from the call: Redux reducers, Angular services that hand data to components through `subscribe(x => this.x = x)`, and `.html` templates. These are the main gaps, and the next things to close:
-- Data passed as component props or stored on `this`
-- Angular service methods followed by class name (`this.articlesService.get` → `ArticlesService.get`)
-- Redux: action payload → reducer → selector
+Field reads in real apps often happen far from the call: Redux reducers, Angular services that hand data to components through `subscribe(x => this.x = x)`, and `.html` templates.
+
+### Accuracy round (after v0.4.0)
+
+Three gaps closed, each with new corpus cases that include look-alike lines which must not be flagged:
+- **Service methods by class name.** A generic method like `get` is followed only when the receiver names its class: `this.userService.get()`, `self.user_service.get()`, or `userService.get()` → `UserService.get`. MEDIUM confidence.
+- **`this.x` / `self.x` fields.** A response stored on `this`/`self` is traced into the other methods of the *same* class only, and without their local variables.
+- **Props, one hop into child components.** `<UserCard user={user} />` seeds `UserCard` with `props.user`, `({ user })` or `({ user: u })`. Only capitalized components are followed, never DOM elements. MEDIUM confidence.
+
+| Corpus (24 truly affected lines) | Before | After |
+|---|---|---|
+| Recall at the default threshold | 71% | 96% |
+| Precision at the default threshold | 100% | 100% |
+| Recall floor enforced in CI | 85% | 95% |
+
+On the RealWorld Angular app, the 3 component reads of `Profile.username` moved from LOW to MEDIUM (traced via `ProfileService.get()`). The remaining gaps:
+- **Angular `.html` templates.** That's where `article.title` is read. Parsing them is the next big Angular win.
+- **Redux:** action payload → reducer → store → `mapStateToProps`/`useSelector`. The React app is still LOW only.
+- **Test doubles held in generically named variables** (`service = TestBed.inject(ArticlesService)`).
 
 ---
 

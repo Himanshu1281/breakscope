@@ -196,3 +196,13 @@ def test_cli_usages_bad_spec(tmp_path: Path) -> None:
     result = runner.invoke(app, ["usages", str(bad), str(tmp_path)])
     assert result.exit_code == 2
     assert "swagger2openapi" in result.output
+
+
+def test_receiver_matches_class_name() -> None:
+    from breakscope.impact.resolver import _receiver_matches
+
+    assert _receiver_matches("this.userService", "UserService")
+    assert _receiver_matches("self.user_service", "UserService")
+    assert _receiver_matches("userService", "UserService")
+    assert not _receiver_matches("this.http", "UserService")
+    assert not _receiver_matches(None, "UserService")

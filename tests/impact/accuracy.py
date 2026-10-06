@@ -18,7 +18,7 @@ from breakscope.impact.models import ImpactReport
 ROOT = Path(__file__).parents[2]
 CORPUS = Path(__file__).parent / "corpus"
 DOC = ROOT / "docs" / "accuracy.md"
-_MARKER = re.compile(r"(?://|#)\s*affected:\s*([\w.,\s]+?)\s*$")
+_MARKER = re.compile(r"(?://|#|/\*)\s*affected:\s*([\w.,\s]+?)\s*(?:\*/\}?)?\s*$")
 
 Location = tuple[str, int, str]  # (file, line, rule)
 
