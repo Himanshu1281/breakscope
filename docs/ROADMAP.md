@@ -135,7 +135,15 @@ On the RealWorld Angular app, the 3 component reads of `Profile.username` moved 
 - `--fail-on high|medium|low|never`
 - SARIF output, so results show up in GitHub code scanning (this costs little and adds a lot)
 
-**Ship v1.0:** README with a GIF, `examples/` (fastapi, express, react, mixed), and the Action on the Marketplace.
+**Built (v0.5):**
+- `breakscope check` reads the old spec at a git ref with `git show`. All YAML/JSON files under the spec's folder are extracted together, so split specs with relative `$ref`s work. A spec that doesn't exist at the base yet is "nothing to compare", not an error. An unknown ref gets a hint to fetch it or to use `fetch-depth: 0`.
+- `git:REF:PATH` works anywhere a spec is expected (`diff`, `analyze`).
+- `.breakscope.yml` is validated with clear errors (accepts `fail-on` and `fail_on`). `breakscope init` finds the spec, skipping `node_modules` and the like, and `--workflow` writes the GitHub workflow.
+- Markdown report: one table per change with clickable `file#Lnn` links, warnings collapsed under `<details>`, and a marker comment so the Action edits a single PR comment instead of adding new ones.
+- SARIF 2.1.0: level comes from risk, with fingerprints that survive line shifts.
+- Composite Action (`action.yml`), with no Docker and no Node runtime of its own. It installs BreakScope from the action's own ref, fetches the base branch when the checkout is shallow, writes the job summary, and posts or updates the PR comment. It doesn't add a comment for PRs without changes, and it warns instead of failing when a fork PR's token can't comment. A self-test job in CI runs the Action against the demo and checks its outputs.
+
+**Still to do for v1.0:** README with a GIF, `examples/` (fastapi, express, react, mixed), a `v1` major tag, and the Action on the Marketplace.
 
 ---
 

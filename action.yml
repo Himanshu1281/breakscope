@@ -1,0 +1,169 @@
+name: BreakScope API impact
+description: Find the code an OpenAPI change will break, and report it on the pull request.
+author: Himanshu1281
+branding:
+  icon: crosshair
+  color: red
+
+inputs:
+  spec:
+    description: Path to the OpenAPI spec, relative to `path`. Defaults to `spec` in .breakscope.yml.
+    required: false
+    default: ""
+  base:
+    description: Git ref to compare against. Defaults to the PR's base branch (origin/<base>).
+    required: false
+    default: ""
+  old-spec:
+    description: Compare against this spec file instead of a git ref.
+    required: false
+    default: ""
+  path:
+    description: Repository root to analyze.
+    required: false
+    default: "."
+  fail-on:
+    description: "Fail the job on affected code at this risk or higher: high, medium, low or never."
+    required: false
+    default: ""
+  min-confidence:
+    description: "Hide locations below this confidence: high, medium or low."
+    required: false
+    default: ""
+  comment:
+    description: Post (and keep updating) one PR comment with the report.
+    required: false
+    default: "true"
+  sarif-file:
+    description: Also write SARIF to this path, e.g. for github/codeql-action/upload-sarif.
+    required: false
+    default: ""
+  version:
+    description: BreakScope version from PyPI. Empty installs the version of this action.
+    required: false
+    default: ""
+  github-token:
+    description: Token used to post the PR comment.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  risk:
+    description: "Overall risk: high, medium, low or none."
+    value: ${{ steps.check.outputs.risk }}
+  breaking-changes:
+    description: Number of breaking contract changes.
+    value: ${{ steps.check.outputs.breaking }}
+  locations:
+    description: Number of affected code locations.
+    value: ${{ steps.check.outputs.locations }}
+  report:
+    description: Path to the Markdown report.
+    value: ${{ steps.check.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+
+    - name: Install BreakScope
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        if [ -n "$VERSION" ]; then
+          python -m pip install --quiet "breakscope==$VERSION"
+        else
+          python -m pip install --quiet "$GITHUB_ACTION_PATH"
+        fi
+        breakscope --version
+
+    - name: Run BreakScope
+      id: check
+      shell: bash
+      env:
+        SPEC: ${{ inputs.spec }}
+        BASE: ${{ inputs.base }}
+        OLD_SPEC: ${{ inputs.old-spec }}
+        ROOT: ${{ inputs.path }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        MIN_CONFIDENCE: ${{ inputs.min-confidence }}
+        SARIF: ${{ inputs.sarif-file }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        report="$RUNNER_TEMP/breakscope.md"
+        summary="$RUNNER_TEMP/breakscope.json"
+        args=(check --repo "$ROOT" --markdown "$report" --json "$summary"
+              --link-base "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$HEAD_SHA")
+        [ -n "$SPEC" ] && args+=(--spec "$SPEC")
+        [ -n "$FAIL_ON" ] && args+=(--fail-on "$FAIL_ON")
+        [ -n "$MIN_CONFIDENCE" ] && args+=(--min-confidence "$MIN_CONFIDENCE")
+        [ -n "$SARIF" ] && args+=(--sarif "$SARIF")
+
+        if [ -n "$OLD_SPEC" ]; then
+          args+=(--old "$OLD_SPEC")
+        else
+          if [ -z "$BASE" ] && [ -n "$GITHUB_BASE_REF" ]; then
+            BASE="origin/$GITHUB_BASE_REF"
+          fi
+          if [ -n "$BASE" ]; then
+            args+=(--base "$BASE")
+            # Shallow checkouts often lack the base branch; fetch just its tip.
+            if ! git -C "$ROOT" rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+              branch="${BASE#origin/}"
+              git -C "$ROOT" fetch --no-tags --depth=1 origin \
+                "+refs/heads/$branch:refs/remotes/origin/$branch" || true
+            fi
+          fi
+        fi
+
+        set +e
+        breakscope "${args[@]}"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" -eq 2 ]; then
+          echo "::error::BreakScope could not run (see the log above)."
+          exit 2
+        fi
+
+        python - "$summary" >> "$GITHUB_OUTPUT" <<'EOF'
+        import json, sys
+        s = json.load(open(sys.argv[1], encoding="utf-8"))["summary"]
+        print(f"risk={s['risk']}")
+        print(f"breaking={s['breaking_changes']}")
+        print(f"locations={s['locations']}")
+        EOF
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Comment on pull request
+      if: inputs.comment == 'true' && github.event.pull_request.number
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR: ${{ github.event.pull_request.number }}
+        REPORT: ${{ steps.check.outputs.report }}
+        RISK: ${{ steps.check.outputs.risk }}
+        BREAKING: ${{ steps.check.outputs.breaking }}
+      run: |
+        marker="<!-- breakscope-report -->"
+        existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" 2>/dev/null | head -n1 || true)
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" \
+            -F "body=@$REPORT" >/dev/null \
+            || echo "::warning::Could not update the BreakScope comment."
+        elif [ "$BREAKING" != "0" ] || [ "$RISK" != "none" ]; then
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F "body=@$REPORT" >/dev/null \
+            || echo "::warning::Could not post a PR comment. Fork PRs get a read-only token; grant pull-requests: write or set comment: false."
+        fi
+
+    - name: Fail on affected code
+      if: steps.check.outputs.exit-code == '1'
+      shell: bash
+      run: |
+        echo "::error::BreakScope found code affected by breaking API changes (risk: ${{ steps.check.outputs.risk }})."
+        exit 1

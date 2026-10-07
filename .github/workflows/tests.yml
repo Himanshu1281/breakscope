@@ -23,3 +23,27 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: pytest -q
+
+  action:
+    # Runs the action from this checkout against the demo, without git or a PR comment.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - id: breakscope
+        uses: ./
+        with:
+          path: examples/demo
+          spec: api/openapi-v2.yaml
+          old-spec: examples/demo/api/openapi-v1.yaml
+          fail-on: never
+          comment: "false"
+          sarif-file: breakscope.sarif
+      - name: Check outputs
+        shell: bash
+        run: |
+          echo "risk=${{ steps.breakscope.outputs.risk }} breaking=${{ steps.breakscope.outputs.breaking-changes }} locations=${{ steps.breakscope.outputs.locations }}"
+          test "${{ steps.breakscope.outputs.risk }}" = high
+          test "${{ steps.breakscope.outputs.breaking-changes }}" = 4
+          test "${{ steps.breakscope.outputs.locations }}" = 4
+          grep -q "UserProfile.tsx" "${{ steps.breakscope.outputs.report }}"
+          python -c "import json; assert json.load(open('breakscope.sarif'))['runs'][0]['results']"
