@@ -157,7 +157,7 @@ On the RealWorld Angular app, the 3 component reads of `Profile.username` moved 
 ## M5 — Generated clients and migrations (after 1.0)
 
 - Generated-client mapping: parse `openapi-generator` and `openapi-typescript-codegen` output to map `UsersApi.getUserById` → `GET /users/{id}`
-- Rename detection: a removed property plus an added property of the same type and a similar name gives a `likely_renamed_to` hint
+- ✅ Rename detection (1.1.0): a removed property plus an added property of the same type and a similar name, or the only one out and the only one in, gives a `renamed_to` hint. Ambiguous cases (`name` → `first_name` / `last_name`) get no hint.
 - `breakscope fix --dry-run` writes a unified diff only. It never edits files.
 - `breakscope explain <METHOD path>`
 

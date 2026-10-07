@@ -3,7 +3,7 @@ from rich.markup import escape
 
 from breakscope.changes import APIChange, Severity
 from breakscope.contracts.rules import RULES
-from breakscope.reports import ChangeGroup, group_changes
+from breakscope.reports import ChangeGroup, group_changes, rename_hint
 
 _STYLE = {Severity.BREAKING: "bold red", Severity.WARNING: "yellow", Severity.INFO: "dim"}
 _ICON = {Severity.BREAKING: "🔴", Severity.WARNING: "🟡", Severity.INFO: "⚪"}
@@ -59,6 +59,9 @@ def _group(console: Console, g: ChangeGroup, icon: str, style: str) -> None:
         return
     console.print(f"\n{icon} [{style}]{escape(c.rule)}[/]  [bold]{escape(c.subject)}[/]")
     console.print(f"   {escape(RULES[c.rule].description)}")
+    hint = rename_hint(c)
+    if hint:
+        console.print(f"   [green]hint:[/] {escape(hint)}")
     console.print(f"   affects {len(g.changes)} operations:")
     for x in g.changes[:_MAX_OPS]:
         console.print(f"     {escape(f'{x.method} {x.path}')}{escape(_status(x))}")

@@ -4,7 +4,7 @@ from breakscope import __version__
 from breakscope.changes import Severity
 from breakscope.contracts.rules import RULES
 from breakscope.impact.models import Impact, ImpactReport, Risk
-from breakscope.reports import ChangeGroup, group_changes
+from breakscope.reports import ChangeGroup, group_changes, rename_hint, without_hint
 from breakscope.reports.impact import overall_risk
 
 # The PR comment is found and updated by this marker, so there is only ever one.
@@ -55,13 +55,17 @@ def _group(
     group_impacts = [i for i in impacts if i.change in g.changes]
     if len(g.changes) == 1:
         op = f"{c.method} {c.path}"
-        rest = c.message[len(op) :] if c.message.startswith(op) else f": {c.message}"
+        msg = without_hint(c)
+        rest = msg[len(op) :] if msg.startswith(op) else f": {msg}"
         title = f"`{op}`{_md(rest)}"
     else:
         ops = ", ".join(f"`{x.method} {x.path}`" for x in g.changes[:3])
         more = f" and {len(g.changes) - 3} more" if len(g.changes) > 3 else ""
         title = f"`{c.subject}`: {_md(RULES[c.rule].description)} In {ops}{more}."
     lines = [f"### {n}. {title}", ""]
+    hint = rename_hint(c)
+    if hint:
+        lines += [f"💡 {hint[0].upper()}{hint[1:]}.", ""]
     if not group_impacts:
         calls = sum(report.call_counts.get(x.key, 0) for x in g.changes)
         lines.append(

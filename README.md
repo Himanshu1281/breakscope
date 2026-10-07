@@ -41,7 +41,7 @@ The [GitHub Action](#github-action) posts the same analysis as a PR comment. It 
 1. **Diff** the two specs into direction-aware changes, each with the exact field path (`User.name`).
 2. **Find call sites** of every operation with tree-sitter: `fetch`, axios, Angular `HttpClient`, `requests`, `httpx`, aiohttp and custom clients.
 3. **Trace the response** through `await`, `.data`, `.json()`, `.then()`, destructuring, `.map()`/`for` loops, RxJS `pipe(map())` and React `useState`, and one hop across a function return.
-4. **Report** each read of a changed field with a confidence level:
+4. **Report** each read of a changed field with a confidence level, and when a property was probably renamed, what to replace it with (`.name` → `.full_name`):
 
 | Confidence | Meaning |
 |---|---|

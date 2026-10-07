@@ -10,6 +10,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'endpoint.added',
       'schema_name': None,
       'schema_path': list([
@@ -30,6 +32,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'endpoint.removed',
       'schema_name': None,
       'schema_path': list([
@@ -51,6 +55,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'parameter.added.optional',
       'schema_name': None,
       'schema_path': list([
@@ -72,6 +78,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'parameter.added.required',
       'schema_name': None,
       'schema_path': list([
@@ -93,6 +101,8 @@
       'new': True,
       'old': False,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'parameter.became_required',
       'schema_name': None,
       'schema_path': list([
@@ -119,6 +129,8 @@
         'b',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'parameter.enum.value_removed',
       'schema_name': None,
       'schema_path': list([
@@ -140,6 +152,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'parameter.removed',
       'schema_name': None,
       'schema_path': list([
@@ -165,6 +179,8 @@
         'string',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'parameter.type.changed',
       'schema_name': None,
       'schema_path': list([
@@ -185,6 +201,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.body.added.required',
       'schema_name': None,
       'schema_path': list([
@@ -205,6 +223,8 @@
       'new': True,
       'old': False,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.body.became_required',
       'schema_name': None,
       'schema_path': list([
@@ -225,6 +245,8 @@
       'new': None,
       'old': 'application/json',
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.media_type.removed',
       'schema_name': None,
       'schema_path': list([
@@ -248,6 +270,8 @@
       ]),
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.property.added.required',
       'schema_name': 'ItemInput',
       'schema_path': list([
@@ -270,6 +294,8 @@
       'new': True,
       'old': False,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.property.became_required',
       'schema_name': 'ItemInput',
       'schema_path': list([
@@ -297,6 +323,8 @@
         'y',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.property.enum.value_removed',
       'schema_name': 'ItemInput',
       'schema_path': list([
@@ -321,6 +349,8 @@
         'integer',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.property.removed',
       'schema_name': 'ItemInput',
       'schema_path': list([
@@ -347,6 +377,8 @@
         'integer',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'request.property.type.changed',
       'schema_name': 'ItemInput',
       'schema_path': list([
@@ -376,6 +408,8 @@
         'off',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.enum.value_added',
       'schema_name': 'Item',
       'schema_path': list([
@@ -401,6 +435,8 @@
         'off',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.enum.value_added',
       'schema_name': 'Item',
       'schema_path': list([
@@ -428,6 +464,8 @@
         'off',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.enum.value_removed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -451,6 +489,8 @@
         'off',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.enum.value_removed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -472,6 +512,8 @@
       'new': None,
       'old': 'application/json',
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.media_type.removed',
       'schema_name': None,
       'schema_path': list([
@@ -495,6 +537,8 @@
       ]),
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.added',
       'schema_name': 'Item',
       'schema_path': list([
@@ -515,6 +559,8 @@
       ]),
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.added',
       'schema_name': 'Item',
       'schema_path': list([
@@ -537,6 +583,8 @@
       'new': True,
       'old': False,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.became_nullable',
       'schema_name': 'Item',
       'schema_path': list([
@@ -555,6 +603,8 @@
       'new': True,
       'old': False,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.became_nullable',
       'schema_name': 'Item',
       'schema_path': list([
@@ -577,6 +627,8 @@
       'new': False,
       'old': True,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.became_optional',
       'schema_name': 'Item',
       'schema_path': list([
@@ -595,6 +647,8 @@
       'new': False,
       'old': True,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.became_optional',
       'schema_name': 'Item',
       'schema_path': list([
@@ -617,6 +671,8 @@
       'new': 'date',
       'old': 'date-time',
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.format.changed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -635,6 +691,8 @@
       'new': 'date',
       'old': 'date-time',
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.format.changed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -659,6 +717,8 @@
         'string',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.removed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -679,6 +739,8 @@
         'string',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.removed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -705,6 +767,8 @@
         'integer',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.type.changed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -727,6 +791,8 @@
         'integer',
       ]),
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.property.type.changed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -748,6 +814,8 @@
       'new': None,
       'old': '200',
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'response.status.removed',
       'schema_name': None,
       'schema_path': list([
@@ -769,6 +837,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'schema.union.changed',
       'schema_name': 'Item',
       'schema_path': list([
@@ -787,6 +857,8 @@
       'new': None,
       'old': None,
       'path': '/items/{id}',
+      'renamed_from': None,
+      'renamed_to': None,
       'rule': 'schema.union.changed',
       'schema_name': 'Item',
       'schema_path': list([

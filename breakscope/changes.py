@@ -44,6 +44,9 @@ class APIChange(BaseModel):
     old: Any = None
     new: Any = None
     message: str
+    # A removed property that was probably renamed, and the reverse on the added one.
+    renamed_to: str | None = None
+    renamed_from: str | None = None
 
     @property
     def key(self) -> str:
