@@ -4,8 +4,11 @@ import os
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 
+from breakscope.analyzers import rtk
 from breakscope.analyzers.base import Analyzer, CallSite
+from breakscope.analyzers.generated import OperationIndex, client_calls, is_generated
 from breakscope.analyzers.javascript import JavaScriptAnalyzer
 from breakscope.analyzers.python import PythonAnalyzer
 
@@ -42,6 +45,8 @@ _TEST_DIRS = frozenset({"test", "tests", "__tests__", "spec", "specs", "e2e", "c
 class ScanResult:
     sites: list[CallSite] = field(default_factory=list)
     files_scanned: int = 0
+    # Generated API client files: not scanned for calls (nobody edits them by hand).
+    generated_files: int = 0
     # file -> reason, for files we could not read
     errors: dict[str, str] = field(default_factory=dict)
 
@@ -89,9 +94,15 @@ def iter_source_files(root: Path, exclude: tuple[str, ...] = ()) -> list[Path]:
     return files
 
 
-def scan_repo(root: Path, exclude: tuple[str, ...] = ()) -> ScanResult:
+def scan_repo(
+    root: Path, exclude: tuple[str, ...] = (), contract: "Contract | None" = None
+) -> ScanResult:
+    """Call sites in every source file. With a contract, calls to generated API clients
+    (`UsersService.getUser(...)`) are found too, by the operation's operationId."""
     analyzers = _analyzers()
     result = ScanResult()
+    own: list[tuple[PurePosixPath, bytes, Analyzer]] = []
+    generated: list[bytes] = []
     for path in iter_source_files(root, exclude):
         rel = PurePosixPath(path.relative_to(root).as_posix())
         try:
@@ -101,10 +112,41 @@ def scan_repo(root: Path, exclude: tuple[str, ...] = ()) -> ScanResult:
         except OSError as e:
             result.errors[str(rel)] = e.strerror or str(e)
             continue
+        if is_generated(source):
+            result.generated_files += 1
+            generated.append(source)
+            continue
         result.files_scanned += 1
         analyzer = analyzers[path.suffix]
+        own.append((rel, source, analyzer))
         result.sites += analyzer.scan(source, str(rel), is_test=is_test_file(rel))
+
+    # RTK Query: endpoints are declared once (createApi) and called through hooks anywhere.
+    js_files = [(rel, src, an, an.parse(src)) for rel, src, an in own if an.language != "python"]
+    eps = [ep for _, _, _, root_node in js_files for ep in rtk.endpoints(root_node)]
+    if eps:
+        for rel, source, analyzer, root_node in js_files:
+            result.sites += rtk.hook_calls(
+                root_node, source, str(rel), analyzer.language, eps, is_test=is_test_file(rel)
+            )
+
+    if contract is not None and generated:
+        index = OperationIndex(contract, generated)
+        if index:
+            for rel, source, analyzer in own:
+                root_node = analyzer.parse(source)
+                result.sites += client_calls(
+                    root_node,
+                    source,
+                    str(rel),
+                    analyzer.language,
+                    index,
+                    is_test=is_test_file(rel),
+                )
     return result
 
+
+if TYPE_CHECKING:
+    from breakscope.contracts.model import Contract
 
 __all__ = ["CallSite", "ScanResult", "is_test_file", "iter_source_files", "scan_repo"]

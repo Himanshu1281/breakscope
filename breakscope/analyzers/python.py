@@ -32,8 +32,11 @@ class PythonAnalyzer:
     def __init__(self) -> None:
         self._parser = Parser(_LANG)
 
+    def parse(self, source: bytes) -> Node:
+        return self._parser.parse(source).root_node
+
     def scan(self, source: bytes, file: str, *, is_test: bool) -> list[CallSite]:
-        root = self._parser.parse(source).root_node
+        root = self.parse(source)
         consts = _collect_consts(root)
         sites: list[CallSite] = []
         for node in walk(root):

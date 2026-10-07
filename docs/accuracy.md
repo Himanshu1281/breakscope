@@ -9,9 +9,9 @@ precision at the default threshold drops below 100%.
 
 | Shown at confidence | Precision | Recall | Found / truly affected |
 |---|---|---|---|
-| high only | 100% | 71% | 17 / 24 |
-| medium+ (default) | 100% | 96% | 23 / 24 |
-| low+ | 100% | 100% | 24 / 24 |
+| high only | 100% | 76% | 26 / 34 |
+| medium+ (default) | 100% | 97% | 33 / 34 |
+| low+ | 100% | 100% | 34 / 34 |
 
 ## Known misses
 

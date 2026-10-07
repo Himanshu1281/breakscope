@@ -58,6 +58,8 @@ class Analyzer(Protocol):
 
     def scan(self, source: bytes, file: str, *, is_test: bool) -> list[CallSite]: ...
 
+    def parse(self, source: bytes) -> Node: ...
+
 
 HTTP_VERBS = frozenset({"get", "post", "put", "patch", "delete", "head", "options"})
 
@@ -84,7 +86,11 @@ def build_template(parts: UrlParts) -> UrlTemplate | None:
             return None
         relative = True
 
-    segments = tuple(PARAM if hole in seg else seg for seg in text.split("/") if seg)
+    segments = tuple(
+        PARAM if hole in seg or (seg.startswith("{") and seg.endswith("}")) else seg
+        for seg in text.split("/")
+        if seg
+    )
     if not segments and not absolute:
         return None
     return UrlTemplate(

@@ -133,7 +133,7 @@ def usages(
         err.print(e.render(), markup=False, highlight=False)
         raise typer.Exit(EXIT_ERROR) from None
 
-    scan = scan_repo(repo, tuple(exclude or ()))
+    scan = scan_repo(repo, tuple(exclude or ()), contract)
     index = index_usages(contract, scan.sites, base_url or ())
 
     if fmt is Format.json:

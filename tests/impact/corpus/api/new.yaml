@@ -4,11 +4,13 @@ servers: [{url: "https://shop.example.com/api"}]
 paths:
   /users/{id}:
     get:
+      operationId: getUser
       parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
       responses:
         "200": {description: ok, content: {application/json: {schema: {$ref: "#/components/schemas/User"}}}}
   /orders:
     get:
+      operationId: listOrders
       parameters: [{name: tenant, in: query, required: true, schema: {type: string}}]
       responses:
         "200": {description: ok, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/Order"}}}}}

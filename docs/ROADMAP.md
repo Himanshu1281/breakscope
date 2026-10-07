@@ -122,7 +122,7 @@ Three gaps closed, each with new corpus cases that include look-alike lines whic
 
 On the RealWorld Angular app, the 3 component reads of `Profile.username` moved from LOW to MEDIUM (traced via `ProfileService.get()`). The remaining gaps:
 - **Angular `.html` templates.** That's where `article.title` is read. Parsing them is the next big Angular win.
-- **Redux:** action payload → reducer → store → `mapStateToProps`/`useSelector`. The React app is still LOW only.
+- **Redux:** ✅ Redux Toolkit (1.2.0): `createAsyncThunk` → `addCase(x.fulfilled)` → slice field → `useSelector` (inline or named selectors), plus RTK Query hooks as call sites. Classic Redux (action-type constants, `switch` reducers, promise middleware, `mapStateToProps`) is still open; the RealWorld React app uses it and stays LOW.
 - **Test doubles held in generically named variables** (`service = TestBed.inject(ArticlesService)`).
 
 ---
@@ -156,7 +156,7 @@ On the RealWorld Angular app, the 3 component reads of `Profile.username` moved 
 
 ## M5 — Generated clients and migrations (after 1.0)
 
-- Generated-client mapping: parse `openapi-generator` and `openapi-typescript-codegen` output to map `UsersApi.getUserById` → `GET /users/{id}`
+- ✅ Generated clients: files with generator headers (openapi-generator, openapi-typescript-codegen, orval, openapi-python-client, `@generated`...) are skipped. Calls from your code to a method named after an operationId that the generated code defines (`UsersService.getUser()`, `usersApi.getUser()`, `get_user.sync()`) map to that operation at HIGH confidence. `openapi-fetch` (`client.GET("/users/{id}")`) is supported. Generic ids (`get`, `list`...) and ids under 4 characters are not matched by name.
 - ✅ Rename detection (1.1.0): a removed property plus an added property of the same type and a similar name, or the only one out and the only one in, gives a `renamed_to` hint. Ambiguous cases (`name` → `first_name` / `last_name`) get no hint.
 - `breakscope fix --dry-run` writes a unified diff only. It never edits files.
 - `breakscope explain <METHOD path>`

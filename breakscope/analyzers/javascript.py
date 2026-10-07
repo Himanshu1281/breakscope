@@ -35,8 +35,11 @@ class JavaScriptAnalyzer:
         self.language = language
         self._parser = Parser(_LANGS[language])
 
+    def parse(self, source: bytes) -> Node:
+        return self._parser.parse(source).root_node
+
     def scan(self, source: bytes, file: str, *, is_test: bool) -> list[CallSite]:
-        root = self._parser.parse(source).root_node
+        root = self.parse(source)
         consts = _collect_consts(root)
         sites: list[CallSite] = []
         for node in walk(root):
@@ -79,8 +82,9 @@ class JavaScriptAnalyzer:
             # app.get("/users", (req, res) => ...) defines a route; it does not call one.
             if last in _ROUTERS or any(a.type in _FUNCTIONS for a in args[1:]):
                 return []
-            if prop in HTTP_VERBS or prop == "del":  # superagent: .del() is DELETE
-                method = "DELETE" if prop == "del" else prop.upper()
+            verb = prop.lower() if prop.isupper() else prop  # openapi-fetch: client.GET(...)
+            if verb in HTTP_VERBS or verb == "del":  # superagent: .del() is DELETE
+                method = "DELETE" if verb == "del" else verb.upper()
                 url_node = args[0] if args else None
             elif prop == "request" and args and args[0].type == "object":
                 url_node = _pair(args[0], "url")

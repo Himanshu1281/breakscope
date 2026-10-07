@@ -10,12 +10,14 @@ from tree_sitter import Node, Parser
 
 from breakscope.analyzers import is_test_file, iter_source_files, scan_repo
 from breakscope.analyzers.base import CallSite, text, walk
+from breakscope.analyzers.generated import is_generated
 from breakscope.analyzers.javascript import _LANGS as _JS_LANGS
 from breakscope.analyzers.python import _LANG as _PY_LANG
 from breakscope.changes import APIChange, Direction, Severity
 from breakscope.contracts.diff import diff_contracts
 from breakscope.contracts.model import Contract, OperationKey
 from breakscope.contracts.normalize import operation_key
+from breakscope.impact import redux
 from breakscope.impact.flow import (
     Access,
     FlowResult,
@@ -150,7 +152,7 @@ def analyze(
     min_severity: Severity = Severity.WARNING,
 ) -> ImpactReport:
     changes = [c for c in diff_contracts(old, new) if c.severity.rank <= min_severity.rank]
-    scan = scan_repo(repo, exclude)
+    scan = scan_repo(repo, exclude, old)
     # Code is written against the old contract, so match call sites to it.
     index = index_usages(old, scan.sites, base_paths)
     sources = _Sources(repo)
@@ -192,7 +194,7 @@ def analyze(
         for path in iter_source_files(repo, exclude):
             rel = path.relative_to(repo).as_posix()
             parsed = sources.get(rel)
-            if parsed is None:
+            if parsed is None or is_generated(parsed[0]):
                 continue
             source, root, lang = parsed
             for call, name, receiver in _calls_by_name(root, lang, returns.keys()):
@@ -220,6 +222,33 @@ def analyze(
                 traces[key].append(
                     _Trace(key, site, Confidence.MEDIUM, result.accesses, via, file=rel)
                 )
+
+    # 2c. Redux Toolkit: thunk result -> slice field -> useSelector, in any file.
+    if returns:
+        thunks = {
+            name: [redux.Payload(r.key, r.value, r.origin) for r in rets]
+            for name, rets in returns.items()
+        }
+        js = []
+        for path in iter_source_files(repo, exclude):
+            rel = path.relative_to(repo).as_posix()
+            parsed = sources.get(rel)
+            if parsed is not None and parsed[2] != "python" and not is_generated(parsed[0]):
+                js.append((rel, parsed))
+        store: redux.Store = {}
+        for _, (source, root, _) in js:
+            for slot, payloads in redux.slice_writes(root, source, thunks).items():
+                store.setdefault(slot, []).extend(payloads)
+        if store:
+            selectors: dict[str, Node] = {}
+            for _, (_, root, _) in js:
+                selectors.update(redux.named_selectors(root))
+            for rel, (source, root, lang) in js:
+                for call, payload, label in redux.selector_reads(root, store, selectors):
+                    assert isinstance(payload.origin, CallSite)
+                    result = JSFlow(source, call, payload.value).run()
+                    site = _site_for(call, rel, lang, source, payload.origin)
+                    keep(payload.key, site, Confidence.MEDIUM, result, f"via Redux {label}")
 
     # 3. Map each change to locations.
     for change in changes:
@@ -337,7 +366,7 @@ def _component_index(
     for path in iter_source_files(repo, exclude):
         rel = path.relative_to(repo).as_posix()
         parsed = sources.get(rel)
-        if parsed is None or parsed[2] == "python":
+        if parsed is None or parsed[2] == "python" or is_generated(parsed[0]):
             continue
         for n in walk(parsed[1]):
             name: Node | None = None
@@ -395,7 +424,7 @@ def _name_matches(
     for path in iter_source_files(repo, exclude):
         rel = path.relative_to(repo).as_posix()
         parsed = sources.get(rel)
-        if parsed is None:
+        if parsed is None or is_generated(parsed[0]):
             continue
         source, root, _ = parsed
         for n in walk(root):
