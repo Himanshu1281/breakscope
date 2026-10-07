@@ -1,5 +1,7 @@
 """Trace a response value through JavaScript/TypeScript code within one function."""
 
+import re
+
 from tree_sitter import Node
 
 from breakscope.analyzers.base import text, walk
@@ -88,6 +90,7 @@ _ELEMENT_CALLBACK = frozenset(
     }
 )
 _COMBINERS = frozenset({"combineLatest", "forkJoin", "zip"})
+_DOTTED = re.compile(r"(?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)+")
 _RX_MAP = frozenset({"map", "switchMap", "mergeMap", "concatMap", "exhaustMap"})
 _PASSES = 4
 
@@ -119,6 +122,9 @@ class JSFlow:
         # Redux reducers: `state.current = action.payload` writes store slot "current".
         self.store_param = store_param
         self.store_writes: dict[str, Value] = {}
+        self.dispatched: list[tuple[str, Value]] = []
+        self.prop_calls: list[tuple[str, Value]] = []
+        self._named_functions: dict[str, Node] | None = None
         self.setters: dict[str, str] = {}  # setUser -> user (React useState)
         self.accesses: dict[tuple[int, int, tuple[str, ...]], Access] = {}
         # Props this code passes to child components: (Component, {prop: value}).
@@ -152,6 +158,8 @@ class JSFlow:
             class_name=_class_name(self.scope),
             props=self.props_out,
             fields={k[len("this.") :]: v for k, v in fields.items()},
+            dispatched=self.dispatched,
+            prop_calls=self.prop_calls,
             template=_template_of(self.scope) if fields else None,
         )
 
@@ -208,11 +216,10 @@ class JSFlow:
         if t == "member_expression":
             prop = text(node.child_by_field_name("property"))
             obj_node = node.child_by_field_name("object")
-            # `this.user` and `props.user` are tracked as named slots.
-            if obj_node is not None and obj_node.type in ("this", "identifier"):
-                slot = self.env.get(f"{text(obj_node)}.{prop}")
-                if slot is not None:
-                    return slot
+            # `this.user`, `props.user` and `this.props.user` are tracked as named slots.
+            dotted = text(node).replace("?.", ".")
+            if _DOTTED.fullmatch(dotted) and dotted in self.env:
+                return self.env[dotted]
             v = self.value(obj_node, depth + 1)
             if v is None or prop in _NOT_FIELDS:
                 return None
@@ -225,6 +232,8 @@ class JSFlow:
             if idx.type == "string":
                 return v.member(text(idx)[1:-1])
             if idx.type == "number":
+                if v.kind == "tuple":
+                    return v.at(int(text(idx))) if text(idx).isdigit() else None
                 return v.element()
             return None
         if t == "call_expression":
@@ -259,6 +268,11 @@ class JSFlow:
             return None
         if fn is None or fn.type != "member_expression":
             return None
+        if text(fn) in ("Promise.all", "Promise.allSettled") and _args(node):
+            first = _args(node)[0]
+            if first.type == "array":
+                values = tuple(self.value(i, depth + 1) for i in first.named_children)
+                return Value("tuple", items=values) if any(values) else None
         fobj = fn.child_by_field_name("object")
         if not _args(node) and fobj is not None and fobj.type == "this":  # this.user()
             return self.env.get(f"this.{text(fn.child_by_field_name('property'))}")
@@ -286,6 +300,11 @@ class JSFlow:
         return None
 
     def _callback_result(self, cb: Node, param: Value, depth: int) -> Value | None:
+        if cb.type == "identifier":  # .then(responseBody) with `const responseBody = ...`
+            named = self._functions().get(text(cb))
+            if named is None:
+                return None
+            cb = named
         if cb.type not in FUNCTIONS:
             return None
         self._bind_params(cb, param)
@@ -306,6 +325,14 @@ class JSFlow:
         if t == "variable_declarator":
             name, value = n.child_by_field_name("name"), n.child_by_field_name("value")
             if name is None or value is None:
+                return
+            if name.type == "object_pattern" and text(value) in ("this.props", "props"):
+                # const { user } = this.props
+                for c in name.named_children:
+                    if c.type == "shorthand_property_identifier_pattern":
+                        slot = self.env.get(f"{text(value)}.{text(c)}")
+                        if slot is not None:
+                            self.env[text(c)] = slot
                 return
             if name.type == "array_pattern" and text(_callee(value)).endswith("useState"):
                 items = [c for c in name.named_children if c.type == "identifier"]
@@ -339,6 +366,38 @@ class JSFlow:
         elif t == "call_expression":
             self._bind_call(n)
 
+    def _record_redux(self, fn: Node, args: list[Node]) -> None:
+        """Classic Redux: remember payloads dispatched or handed to dispatching props."""
+        name = text(fn).rsplit(".", 1)[-1]
+        if name == "dispatch" and args[0].type == "object":
+            kind = _pair_value(args[0], "type")
+            payload = _pair_value(args[0], "payload") or _shorthand(args[0], "payload")
+            v = self.value(payload) if payload is not None else None
+            if kind is not None and v is not None:
+                entry = (text(kind).strip("\"'`"), v)
+                if entry not in self.dispatched:
+                    self.dispatched.append(entry)
+        elif fn.type == "member_expression":
+            holder = text(fn.child_by_field_name("object"))
+            if holder in ("this.props", "props"):
+                v = self.value(args[0])
+                if v is not None and (name, v) not in self.prop_calls:
+                    self.prop_calls.append((name, v))
+
+    def _functions(self) -> dict[str, Node]:
+        """`const name = (...) => ...` functions in this file, for `.then(name)`."""
+        if self._named_functions is None:
+            root = self.scope
+            while root.parent is not None:
+                root = root.parent
+            self._named_functions = {}
+            for n in walk(root):
+                if n.type == "variable_declarator":
+                    value = n.child_by_field_name("value")
+                    if value is not None and value.type in FUNCTIONS:
+                        self._named_functions[text(n.child_by_field_name("name"))] = value
+        return self._named_functions
+
     def _jsx_props(self, n: Node) -> None:
         name = n.child_by_field_name("name")
         component = text(name)
@@ -361,6 +420,7 @@ class JSFlow:
         args = _args(n)
         if fn is None or not args:
             return
+        self._record_redux(fn, args)
         if fn.type == "identifier" and text(fn) in self.setters:
             v = self.value(args[0])
             if v is not None:
@@ -553,6 +613,13 @@ def _enclosing(n: Node, node_type: str) -> Node | None:
 
 def _class_name(fn: Node) -> str | None:
     body = fn.parent
+    # `const Users = { get: (id) => ... }`: the object's name plays the class's role.
+    if body is not None and body.type == "pair":
+        obj = body.parent
+        decl = obj.parent if obj is not None and obj.type == "object" else None
+        if decl is not None and decl.type == "variable_declarator":
+            return text(decl.child_by_field_name("name")) or None
+        return None
     if fn.type != "method_definition" or body is None or body.type != "class_body":
         return None
     cls = body.parent
@@ -585,4 +652,11 @@ def _template_of(scope: Node) -> tuple[str, object] | None:
             inline = _pair_value(config, "template")
             if inline is not None and inline.type in ("template_string", "string"):
                 return ("inline", inline)
+    return None
+
+
+def _shorthand(obj: Node, key: str) -> Node | None:
+    for p in obj.named_children:
+        if p.type == "shorthand_property_identifier" and text(p) == key:
+            return p
     return None

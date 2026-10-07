@@ -1,0 +1,3 @@
+export const PROFILE_LOADED = "PROFILE_LOADED";
+export const ORDERS_LOADED = "ORDERS_LOADED";
+export const THEME_CHANGED = "THEME_CHANGED";

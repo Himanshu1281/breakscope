@@ -23,7 +23,8 @@ class Value:
         if self.kind == "tuple":
             return None
         if self.kind == "response":
-            return BODY if name == "data" else None
+            # axios: res.data; superagent: res.body.
+            return BODY if name in ("data", "body") else None
         if self.kind == "either":
             return BODY if name == "data" else Value("body", (name,))
         return Value("body", (*self.path, name))
@@ -71,6 +72,9 @@ class FlowResult:
     # ("url", "./x.component.html") or ("inline", <template node>).
     fields: dict[str, Value] = field(default_factory=dict)
     template: tuple[str, object] | None = None
+    # Classic Redux: dispatch({ type: T, payload }) and this.props.onLoad(payload) calls.
+    dispatched: list[tuple[str, Value]] = field(default_factory=list)
+    prop_calls: list[tuple[str, Value]] = field(default_factory=list)
 
 
 def line_text(source: bytes, node: Node) -> str:
