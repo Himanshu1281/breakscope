@@ -206,3 +206,11 @@ def test_receiver_matches_class_name() -> None:
     assert _receiver_matches("userService", "UserService")
     assert not _receiver_matches("this.http", "UserService")
     assert not _receiver_matches(None, "UserService")
+
+
+def test_receiver_matches_singular_and_plural() -> None:
+    from breakscope.impact.resolver import _receiver_matches
+
+    assert _receiver_matches("this.articleService", "ArticlesService")
+    assert _receiver_matches("this.articlesService", "ArticleService")
+    assert not _receiver_matches("this.commentService", "ArticlesService")

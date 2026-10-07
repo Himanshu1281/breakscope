@@ -1,0 +1,14 @@
+<section>
+  <h2>{{ title }}</h2>
+  @if (user(); as u) {
+    <h1>{{ u.name }}</h1> <!-- affected: response.property.removed -->
+    <p>{{ u.email | lowercase }}</p>
+  }
+  <ul>
+    @for (o of orders; track o.id) {
+      <li [title]="o.items[0].price">{{ o.items[0].sku }}</li> <!-- affected: response.property.type.changed -->
+    }
+  </ul>
+  <div *ngIf="user() as current">{{ current.name }}</div> <!-- affected: response.property.removed -->
+  <span>{{ settings.name }}</span>
+</section>

@@ -1,5 +1,6 @@
 """Join contract changes, call sites and response data flow into impacts."""
 
+import posixpath
 import re
 from collections import defaultdict
 from collections.abc import Iterable
@@ -17,7 +18,7 @@ from breakscope.changes import APIChange, Direction, Severity
 from breakscope.contracts.diff import diff_contracts
 from breakscope.contracts.model import Contract, OperationKey
 from breakscope.contracts.normalize import operation_key
-from breakscope.impact import redux
+from breakscope.impact import angular, redux
 from breakscope.impact.flow import (
     Access,
     FlowResult,
@@ -42,7 +43,7 @@ _LANGUAGE_BY_EXT = {
     ".cjs": "javascript",
     ".jsx": "javascript",
 }
-_RESPONSE_CLIENTS_JS = frozenset({"fetch", "axios", "ky", "got"})
+_RESPONSE_CLIENTS_JS = frozenset({"fetch", "axios", "ky", "got", "superagent"})
 _BODY_CLIENTS_JS = frozenset({"http", "httpClient", "HttpClient"})  # Angular HttpClient
 _RESPONSE_CLIENTS_PY = frozenset({"requests", "httpx", "session", "urllib", "aiohttp"})
 # Too generic to follow across files by name.
@@ -164,9 +165,18 @@ def analyze(
     returns: dict[str, list[_Return]] = defaultdict(list)
     props: list[tuple[OperationKey, CallSite, str, dict[str, Value]]] = []
 
+    templates: list[tuple[OperationKey, CallSite, Confidence, FlowResult, str]] = []
+    events: list[
+        tuple[OperationKey, CallSite, list[tuple[str, Value]], list[tuple[str, Value]]]
+    ] = []
+
     def keep(key: OperationKey, site: CallSite, conf: Confidence, r: FlowResult, via: str) -> None:
         traces[key].append(_Trace(key, site, conf, r.accesses, via))
         props.extend((key, site, component, p) for component, p in r.props)
+        if r.fields and r.template is not None:
+            templates.append((key, site, conf, r, via))
+        if r.dispatched or r.prop_calls:
+            events.append((key, site, r.dispatched, r.prop_calls))
 
     # 1. Direct flow from every call site.
     for key, usages in index.by_operation.items():
@@ -223,12 +233,9 @@ def analyze(
                     _Trace(key, site, Confidence.MEDIUM, result.accesses, via, file=rel)
                 )
 
-    # 2c. Redux Toolkit: thunk result -> slice field -> useSelector, in any file.
-    if returns:
-        thunks = {
-            name: [redux.Payload(r.key, r.value, r.origin) for r in rets]
-            for name, rets in returns.items()
-        }
+    # 2c. Redux: thunk results (Toolkit) and dispatched actions (classic) -> store slots
+    # -> useSelector / mapStateToProps, in any file.
+    if returns or events:
         js = []
         for path in iter_source_files(repo, exclude):
             rel = path.relative_to(repo).as_posix()
@@ -236,9 +243,36 @@ def analyze(
             if parsed is not None and parsed[2] != "python" and not is_generated(parsed[0]):
                 js.append((rel, parsed))
         store: redux.Store = {}
-        for _, (source, root, _) in js:
-            for slot, payloads in redux.slice_writes(root, source, thunks).items():
+
+        def add(found: redux.Store) -> None:
+            for slot, payloads in found.items():
                 store.setdefault(slot, []).extend(payloads)
+
+        thunks = {
+            name: [redux.Payload(r.key, r.value, r.origin) for r in rets]
+            for name, rets in returns.items()
+        }
+        for _, (source, root, _) in js:
+            add(redux.slice_writes(root, source, thunks))
+
+        dprops: dict[str, str] = {}
+        reducer_map: dict[str, str] = {}
+        for rel, (_, root, _) in js:
+            dprops.update(redux.dispatch_props(root))
+            reducer_map.update(redux.reducer_files(root, rel))
+        actions: dict[str, list[redux.Payload]] = defaultdict(list)
+        for key, site, dispatched, prop_calls in events:
+            for kind, v in dispatched:
+                actions[kind].append(redux.Payload(key, v, site))
+            for prop, v in prop_calls:
+                if prop in dprops:
+                    actions[dprops[prop]].append(redux.Payload(key, v, site))
+        if actions and reducer_map:
+            for rel, (source, root, _) in js:
+                slice_name = redux.slice_for(rel, reducer_map)
+                if slice_name:
+                    add(redux.switch_reducer_writes(root, source, slice_name, actions))
+
         if store:
             selectors: dict[str, Node] = {}
             for _, (_, root, _) in js:
@@ -249,6 +283,39 @@ def analyze(
                     result = JSFlow(source, call, payload.value).run()
                     site = _site_for(call, rel, lang, source, payload.origin)
                     keep(payload.key, site, Confidence.MEDIUM, result, f"via Redux {label}")
+                props_map = redux.connected_props(root, store)
+                if props_map:
+                    _connected_traces(traces, props_map, rel, source, root, lang)
+
+    # 2d. Angular templates of components whose fields hold response data.
+    seen_templates: set[tuple[OperationKey, str, int]] = set()
+    for key, site, conf, r, via in templates:
+        assert r.template is not None
+        kind, ref = r.template
+        if kind == "url":
+            html_rel = (PurePosixPath(site.file).parent / str(ref)).as_posix()
+            html_rel = posixpath.normpath(html_rel)
+            try:
+                text_ = (repo / html_rel).read_text(encoding="utf-8")
+            except OSError:
+                continue
+            target, start, end = html_rel, 0, len(text_)
+        else:
+            parsed = sources.get(site.file)
+            if parsed is None or not isinstance(ref, Node):
+                continue
+            raw = parsed[0]
+            text_ = raw.decode("utf-8", errors="replace")
+            start = len(raw[: ref.start_byte].decode("utf-8", errors="replace"))
+            end = len(raw[: ref.end_byte].decode("utf-8", errors="replace"))
+            target = site.file
+        mark = (key, target, start)
+        if mark in seen_templates:
+            continue
+        seen_templates.add(mark)
+        found = angular.template_accesses(text_, start, end, r.fields)
+        label = (via + " " if via else "") + "in template"
+        traces[key].append(_Trace(key, site, conf, found, label.strip(), file=target))
 
     # 3. Map each change to locations.
     for change in changes:
@@ -278,6 +345,44 @@ def analyze(
     report.impacts += _name_matches(changes, report.impacts, repo, exclude, sources)
     report.impacts = _dedupe(report.impacts)
     return report
+
+
+def _connected_traces(
+    traces: dict[OperationKey, list[_Trace]],
+    props_map: dict[str, list["redux.Payload"]],
+    rel: str,
+    source: bytes,
+    root: Node,
+    lang: str,
+) -> None:
+    """Components in a `connect(mapStateToProps)` file read store data through props."""
+    by_key: dict[OperationKey, dict[str, tuple[Value, CallSite]]] = defaultdict(dict)
+    for prop, payloads in props_map.items():
+        for p in payloads:
+            assert isinstance(p.origin, CallSite)
+            by_key[p.key][prop] = (p.value, p.origin)
+    for key, props in by_key.items():
+        values = {prop: v for prop, (v, _) in props.items()}
+        seed = {
+            f"{holder}.{prop}": v
+            for prop, v in values.items()
+            for holder in ("this.props", "props")
+        }
+        origin = next(iter(props.values()))[1]
+        for comp in redux.components(root):
+            result = JSFlow(source, None, None, component=comp, props=values, seed=seed).run()
+            if result.accesses:
+                site = _site_for(comp, rel, lang, source, origin)
+                traces[key].append(
+                    _Trace(
+                        key,
+                        site,
+                        Confidence.MEDIUM,
+                        result.accesses,
+                        "via Redux mapStateToProps",
+                        file=rel,
+                    )
+                )
 
 
 def _is_response_field_change(c: APIChange) -> bool:
@@ -354,7 +459,15 @@ def _receiver_matches(receiver: str | None, class_name: str | None) -> bool:
     """`this.userService` / `self.user_service` / `userService` name the UserService class."""
     if not receiver or not class_name:
         return False
-    return _norm(receiver.rsplit(".", 1)[-1]) == _norm(class_name)
+    return _singular_words(receiver.rsplit(".", 1)[-1]) == _singular_words(class_name)
+
+
+def _singular_words(name: str) -> str:
+    """`ArticlesService` and `articleService` both -> "articleservice": instances are often
+    named in the singular while the class is plural, or the other way round."""
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", spaced.lower()) if w]
+    return "".join(w[:-1] if len(w) > 3 and w.endswith("s") else w for w in words)
 
 
 def _component_index(

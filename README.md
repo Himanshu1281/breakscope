@@ -40,7 +40,7 @@ The [GitHub Action](#github-action) posts the same analysis as a PR comment. It 
 
 1. **Diff** the two specs into direction-aware changes, each with the exact field path (`User.name`).
 2. **Find call sites** of every operation with tree-sitter: `fetch`, axios, Angular `HttpClient`, `requests`, `httpx`, aiohttp, custom clients, generated clients (by operationId), openapi-fetch and RTK Query hooks.
-3. **Trace the response** through `await`, `.data`, `.json()`, `.then()`, destructuring, `.map()`/`for` loops, RxJS `pipe(map())`, React `useState` and props, Redux Toolkit thunks → slices → `useSelector`, and one hop across a function return.
+3. **Trace the response** through `await`, `.data`, `.json()`, `.then()`, destructuring, `.map()`/`for` loops, RxJS (`pipe(map())`, `combineLatest`), React `useState` and props, Redux (Toolkit and classic `connect`), Angular signals and templates, and one hop across a function return.
 4. **Report** each read of a changed field with a confidence level, and when a property was probably renamed, what to replace it with (`.name` → `.full_name`):
 
 | Confidence | Meaning |
@@ -97,6 +97,7 @@ Outputs: `risk`, `breaking-changes`, `locations`, `report` (path to the Markdown
 | `breakscope init` | Creates `.breakscope.yml`, and with `--workflow` the GitHub Actions workflow. |
 | `breakscope diff OLD NEW` | Contract changes only. Exit 1 on breaking changes. |
 | `breakscope usages SPEC [REPO]` | Where your code calls each operation. |
+| `breakscope fix OLD NEW [REPO]` | Prints a patch for renamed fields (`.name` → `.full_name`) at the traced reads. Review it, then `git apply`. |
 
 Specs can be read from git: `breakscope diff git:origin/main:api/openapi.yaml api/openapi.yaml`. `analyze` also takes `--format markdown|sarif`. `analyze` and `usages` take `--base-url /api/v1` (a path prefix your code adds) and `--exclude GLOB`.
 

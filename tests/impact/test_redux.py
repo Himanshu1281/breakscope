@@ -95,3 +95,64 @@ def test_selectors_read_store_slots() -> None:
         (3, ("profile",), "state.users.current.profile"),
         (5, (), "state.users.current"),
     ]
+
+
+# -- classic Redux ---------------------------------------------------------------------
+
+
+def test_dispatch_props_map_prop_names_to_action_types() -> None:
+    _, root = parse(
+        "const mapDispatchToProps = (dispatch) => ({\n"
+        "  onLoad: (payload) => dispatch({ type: LOADED, payload }),\n"
+        "  onSave: (u) => dispatch({ type: 'SAVED', payload: u }),\n"
+        "  onOther: (u) => dispatch({ type: OTHER, payload: u.id }),\n"
+        "});"
+    )
+    assert redux.dispatch_props(root) == {"onLoad": "LOADED", "onSave": "SAVED"}
+
+
+def test_combine_reducers_names_slices_by_import() -> None:
+    _, root = parse(
+        "import profileReducer from './reducers/profile';\n"
+        "import orders from './reducers/orders';\n"
+        "export default combineReducers({ profile: profileReducer, orders });"
+    )
+    assert redux.reducer_files(root, "src/rootReducer.js") == {
+        "src/reducers/profile": "profile",
+        "src/reducers/orders": "orders",
+    }
+
+
+def test_switch_reducers_write_fields_and_whole_slices() -> None:
+    source, root = parse(
+        "export default (state = {}, action) => {\n"
+        "  switch (action.type) {\n"
+        "    case LOADED: return { ...state, user: action.payload[0], extra: 1 };\n"
+        "    case REPLACED: return { ...action.payload.profile };\n"
+        "    case UNRELATED: return { ...state, user: null };\n"
+        "    default: return state;\n"
+        "  }\n"
+        "};"
+    )
+    pair = redux.Payload(("GET", "/u"), redux.Value("tuple", items=(BODY, None)), None)
+    whole = redux.Payload(("GET", "/p"), BODY, None)
+    store = redux.switch_reducer_writes(
+        root, source, "profile", {"LOADED": [pair], "REPLACED": [whole]}
+    )
+    assert {slot: [p.value.path for p in ps] for slot, ps in store.items()} == {
+        ("profile", "user"): [()],
+        ("profile", ""): [("profile",)],
+    }
+
+
+def test_map_state_to_props() -> None:
+    _, root = parse(
+        "const mapStateToProps = (state) => ({ ...state.profile, list: state.orders,"
+        " theme: state.ui.theme });"
+    )
+    store: redux.Store = {
+        ("profile", "user"): [redux.Payload(("GET", "/u"), BODY, None)],
+        ("orders", ""): [redux.Payload(("GET", "/o"), BODY, None)],
+    }
+    props = redux.connected_props(root, store)
+    assert sorted(props) == ["list", "user"]

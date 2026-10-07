@@ -8,7 +8,7 @@ from tree_sitter import Node
 # response: an HTTP response object; the body is behind `.data` (axios) or `.json()`.
 # either:   a custom client's result; it may be the body itself or a response wrapper.
 # body:     the parsed response body; `path` is the position inside it.
-Kind = Literal["response", "either", "body"]
+Kind = Literal["response", "either", "body", "tuple"]
 ELEMENT = "[]"
 
 
@@ -16,10 +16,15 @@ ELEMENT = "[]"
 class Value:
     kind: Kind
     path: tuple[str, ...] = ()
+    # kind == "tuple": combineLatest([a, b]) / forkJoin([a, b]) emit [valueA, valueB].
+    items: tuple["Value | None", ...] = ()
 
     def member(self, name: str) -> "Value | None":
+        if self.kind == "tuple":
+            return None
         if self.kind == "response":
-            return BODY if name == "data" else None
+            # axios: res.data; superagent: res.body.
+            return BODY if name in ("data", "body") else None
         if self.kind == "either":
             return BODY if name == "data" else Value("body", (name,))
         return Value("body", (*self.path, name))
@@ -31,6 +36,12 @@ class Value:
     def parsed(self) -> "Value | None":
         """`.json()`: response -> body."""
         return BODY if self.kind in ("response", "either") else None
+
+    def at(self, index: int) -> "Value | None":
+        """Position `index` of a tuple."""
+        if self.kind == "tuple" and index < len(self.items):
+            return self.items[index]
+        return None
 
 
 BODY = Value("body")
@@ -57,6 +68,13 @@ class FlowResult:
     class_name: str | None = None
     # Props passed to child components: (Component, {prop: value}).
     props: list[tuple[str, dict[str, Value]]] = field(default_factory=list)
+    # Angular: the component's `this.x` fields holding response data, and its template
+    # ("url", "./x.component.html") or ("inline", <template node>).
+    fields: dict[str, Value] = field(default_factory=dict)
+    template: tuple[str, object] | None = None
+    # Classic Redux: dispatch({ type: T, payload }) and this.props.onLoad(payload) calls.
+    dispatched: list[tuple[str, Value]] = field(default_factory=list)
+    prop_calls: list[tuple[str, Value]] = field(default_factory=list)
 
 
 def line_text(source: bytes, node: Node) -> str:
