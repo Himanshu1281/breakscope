@@ -20,6 +20,8 @@ Try it on the demo in this repository:
 breakscope analyze examples/demo/api/openapi-v1.yaml examples/demo/api/openapi-v2.yaml examples/demo
 ```
 
+More examples, one per stack: [FastAPI](https://github.com/Himanshu1281/breakscope/tree/main/examples/fastapi), [Express](https://github.com/Himanshu1281/breakscope/tree/main/examples/express), [React](https://github.com/Himanshu1281/breakscope/tree/main/examples/react), and [Angular + Python](https://github.com/Himanshu1281/breakscope/tree/main/examples/mixed). Each marks the lines that truly break, and a test checks that BreakScope reports exactly those.
+
 ### On every pull request
 
 The [GitHub Action](#github-action) posts the same analysis as a PR comment. It keeps that one comment updated on later pushes, and fails the check when affected code is found. **[See a live example →](https://github.com/Himanshu1281/breakscope-demo/pull/2)**

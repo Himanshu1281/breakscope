@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info: {title: Orders API, version: "1.0"}
+servers: [{url: "https://orders.internal/v1"}]
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [open, shipped, cancelled]}}
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/Order"}}
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+      responses:
+        "200":
+          description: One order
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Order"}
+  /orders/{id}/items:
+    get:
+      operationId: listOrderItems
+      parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+      responses:
+        "200":
+          description: Items
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/Item"}}
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, customer_name, total, status]
+      properties:
+        id: {type: string}
+        customer_name: {type: string}
+        total: {type: integer, description: Amount in cents}
+        status: {type: string, enum: [open, shipped, cancelled]}
+    Item:
+      type: object
+      properties:
+        sku: {type: string}
+        quantity: {type: integer}
