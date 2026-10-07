@@ -361,7 +361,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: Himanshu1281/breakscope@v{version}
+      - uses: Himanshu1281/breakscope@v{major}
 """
 
 
@@ -396,7 +396,8 @@ def init(
             console.print(f"{wf} already exists (use --force to overwrite).", markup=False)
         else:
             wf.parent.mkdir(parents=True, exist_ok=True)
-            wf.write_text(_WORKFLOW.format(version=__version__), encoding="utf-8")
+            major = __version__.split(".")[0]
+            wf.write_text(_WORKFLOW.format(major=major), encoding="utf-8")
             console.print(f"Wrote {wf}", markup=False)
     console.print(
         "Next: run `breakscope check` to compare your spec with the base branch.", markup=False

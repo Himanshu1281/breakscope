@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: Himanshu1281/breakscope@v0.5.0
+      - uses: Himanshu1281/breakscope@v1
         with:
           spec: api/openapi.yaml # or set it in .breakscope.yml
 ```
@@ -102,7 +102,7 @@ Specs can be read from git: `breakscope diff git:origin/main:api/openapi.yaml ap
 
 No account, no API key, no hosted service. Everything runs locally.
 
-**Status:** v0.5: impact analysis, CI mode and the GitHub Action. Supports OpenAPI 3.0/3.1, Python, TypeScript and JavaScript. See the [roadmap](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md).
+**Status:** 1.0. See the [changelog](https://github.com/Himanshu1281/breakscope/blob/main/CHANGELOG.md). Supports OpenAPI 3.0/3.1, Python, TypeScript and JavaScript. See the [roadmap](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md).
 
 ## License
 
