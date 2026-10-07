@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+
+- **Rename hints.** When a property is removed and a same-typed one is added in the same object, BreakScope says it was probably renamed: `name` → `full_name`, `userId` → `user_id`, or `username` → `handle` when it's the only property out and the only one in. Reports say "replace `.name` with `.full_name`"; ambiguous cases get no hint rather than a guess.
+- JSON and SARIF changes carry `renamed_to` (on the removed property) and `renamed_from` (on the added one). Both are new fields; existing ones are unchanged.
+
 ## 1.0.0
 
 BreakScope is stable: the CLI, `.breakscope.yml`, the JSON report (`schema_version: 1`) and the GitHub Action inputs and outputs follow semantic versioning from here on.

@@ -237,3 +237,13 @@ def test_missing_config_gives_defaults(tmp_path: Path) -> None:
 )
 def test_markdown_code_spans(code: str, expected: str) -> None:
     assert _code(code) == expected
+
+
+def test_markdown_shows_rename_hint(repo: Path) -> None:
+    md = repo / "r.md"
+    runner.invoke(
+        app, ["check", "--spec", "api/openapi.yaml", "--base", "main", "--markdown", str(md)]
+    )
+    assert "💡 Probably renamed to `full_name`: replace `.name` with `.full_name`." in md.read_text(
+        encoding="utf-8"
+    )

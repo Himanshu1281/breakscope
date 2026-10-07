@@ -19,6 +19,7 @@ def render(changes: list[APIChange], *, skipped: dict[str, str] | None = None) -
                 "rule": g.rule,
                 "severity": g.severity.value,
                 "subject": g.first.subject,
+                "renamed_to": g.first.renamed_to,
                 "schema_name": g.first.schema_name,
                 "schema_path": list(g.first.schema_path),
                 "operations": [

@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from breakscope.changes import APIChange, Direction
 from breakscope.contracts.model import Contract, Operation, Schema
+from breakscope.contracts.renames import guess_renames
 from breakscope.contracts.rules import RULES
 
 Kind = Literal["parameter", "request", "response"]
@@ -72,6 +73,8 @@ class _Differ:
         owner: Owner = (None, ()),
         old: Any = None,
         new: Any = None,
+        renamed_to: str | None = None,
+        renamed_from: str | None = None,
     ) -> None:
         name, rel = owner
         self.out.append(
@@ -88,6 +91,8 @@ class _Differ:
                 old=old,
                 new=new,
                 message=message,
+                renamed_to=renamed_to,
+                renamed_from=renamed_from,
             )
         )
 
@@ -100,6 +105,7 @@ class _Differ:
         message: str,
         old: Any = None,
         new: Any = None,
+        **hints: str | None,
     ) -> None:
         self.emit(
             rule,
@@ -111,6 +117,7 @@ class _Differ:
             owner=owner,
             old=old,
             new=new,
+            **hints,
         )
 
     # -- operations ---------------------------------------------------------------
@@ -284,13 +291,26 @@ class _Differ:
 
         child_owner: Owner = (old.ref_name, ()) if old.ref_name else owner
         cname, crel = child_owner
+        renames = guess_renames(
+            {n: s for n, s in old.properties.items() if n not in new.properties},
+            {n: s for n, s in new.properties.items() if n not in old.properties},
+        )
+        renamed_from = {to: frm for frm, to in renames.items()}
         for name, op in old.properties.items():
             cfp, cown = fp + (name,), (cname, crel + (name,))
             label = ".".join(cfp).replace(".[]", "[]")
             npr = new.properties.get(name)
             if npr is None:
+                to = renames.get(name)
+                hint = f" (probably renamed to `{to}`)" if to else ""
                 self._at(
-                    f"{k}.property.removed", ctx, cfp, cown, f"`{label}` was removed", _types(op)
+                    f"{k}.property.removed",
+                    ctx,
+                    cfp,
+                    cown,
+                    f"`{label}` was removed{hint}",
+                    _types(op),
+                    renamed_to=to,
                 )
                 continue
             if k == "response" and name in old.required and name not in new.required:
@@ -328,6 +348,7 @@ class _Differ:
                     f"`{label}` was added",
                     None,
                     _types(npr),
+                    renamed_from=renamed_from.get(name),
                 )
             elif name in new.required:
                 self._at(
@@ -335,9 +356,15 @@ class _Differ:
                     ctx,
                     cfp,
                     cown,
-                    f"new required property `{label}`",
+                    f"new required property `{label}`"
+                    + (
+                        f" (probably replaces `{renamed_from[name]}`)"
+                        if name in renamed_from
+                        else ""
+                    ),
                     None,
                     _types(npr),
+                    renamed_from=renamed_from.get(name),
                 )
 
         if old.items is not None and new.items is not None:

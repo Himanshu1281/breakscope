@@ -8,7 +8,7 @@ from breakscope import __version__
 from breakscope.changes import APIChange, Severity
 from breakscope.contracts.rules import RULES
 from breakscope.impact.models import Confidence, Impact, ImpactReport, Risk
-from breakscope.reports import group_changes
+from breakscope.reports import group_changes, rename_hint
 
 SCHEMA_VERSION = 1
 # Icons and colours show risk (severity x confidence), not confidence alone.
@@ -44,6 +44,7 @@ def render_json(report: ImpactReport, impacts: list[Impact]) -> str:
                 "rule": g.rule,
                 "severity": g.severity.value,
                 "subject": g.first.subject,
+                "renamed_to": g.first.renamed_to,
                 "message": g.first.message if len(g.changes) == 1 else RULES[g.rule].description,
                 "operations": [
                     {"method": c.method, "path": c.path, "status_code": c.status_code}
@@ -124,6 +125,9 @@ def _group(
         ops = ", ".join(f"{x.method} {x.path}" for x in changes[:3])
         more = f" and {len(changes) - 3} more" if len(changes) > 3 else ""
         console.print(f"   {escape(RULES[c.rule].description)} In {escape(ops)}{more}.")
+    hint = rename_hint(c)
+    if hint:
+        console.print(f"   [green]hint:[/] {escape(hint)}")
 
     calls = sum(report.call_counts.get(x.key, 0) for x in changes)
     hidden = sum(1 for i in report.impacts if i.change in changes and i not in impacts)
