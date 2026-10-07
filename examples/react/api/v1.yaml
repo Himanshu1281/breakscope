@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info: {title: Blog API, version: "1.0"}
+paths:
+  /posts:
+    get:
+      operationId: listPosts
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/Post"}}
+  /posts/{slug}:
+    get:
+      operationId: getPost
+      parameters: [{name: slug, in: path, required: true, schema: {type: string}}]
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Post"}
+components:
+  schemas:
+    Author:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        avatar: {type: string}
+    Post:
+      type: object
+      required: [slug, title, author, publishedAt]
+      properties:
+        slug: {type: string}
+        title: {type: string}
+        author: {$ref: "#/components/schemas/Author"}
+        tags: {type: array, items: {type: string}}
+        publishedAt: {type: string, format: date-time}

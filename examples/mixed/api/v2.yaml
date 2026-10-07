@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info: {title: Inventory API, version: "2.0"}
+servers: [{url: "https://inventory.example.com/v1"}]
+paths:
+  /items/{sku}:
+    get:
+      operationId: getItem
+      parameters: [{name: sku, in: path, required: true, schema: {type: string}}]
+      responses:
+        "200":
+          description: Item
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Item"}
+  /items/{sku}/reservations:
+    post:
+      operationId: reserveItem
+      parameters: [{name: sku, in: path, required: true, schema: {type: string}}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity, order_id]
+              properties:
+                quantity: {type: integer}
+                order_id: {type: string}
+      responses:
+        "201": {description: Reserved}
+components:
+  schemas:
+    Item:
+      type: object
+      required: [sku, name, stock]
+      properties:
+        sku: {type: string}
+        name: {type: string}
+        stock:
+          type: object
+          properties:
+            available: {type: integer}
+            reserved: {type: integer}
+        warehouse: {type: string}

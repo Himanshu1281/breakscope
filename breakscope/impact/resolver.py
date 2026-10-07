@@ -76,6 +76,8 @@ class _Trace:
     confidence: Confidence
     accesses: list[Access]
     via: str  # "" for direct flow, or "via getUser()" for a one-hop return
+    # Where the accesses are, when not in the call site's file (a child component).
+    file: str | None = None
 
 
 @dataclass(frozen=True)
@@ -215,7 +217,9 @@ def analyze(
                     continue
                 result = JSFlow(parsed[0], None, None, component=fn, props=values).run()
                 via = f"via <{component} {' '.join(f'{k}=...' for k in values)}>"
-                traces[key].append(_Trace(key, site, Confidence.MEDIUM, result.accesses, via))
+                traces[key].append(
+                    _Trace(key, site, Confidence.MEDIUM, result.accesses, via, file=rel)
+                )
 
     # 3. Map each change to locations.
     for change in changes:
@@ -268,7 +272,7 @@ def _field_impacts(change: APIChange, traces: list[_Trace]) -> list[Impact]:
                 out.append(
                     Impact(
                         change=change,
-                        file=t.site.file,
+                        file=t.file or t.site.file,
                         line=a.line,
                         column=a.column,
                         code=a.code,

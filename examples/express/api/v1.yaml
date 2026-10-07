@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info: {title: Payments API, version: "1.0"}
+servers: [{url: "https://payments.example.com/api"}]
+paths:
+  /payments:
+    get:
+      operationId: listPayments
+      parameters:
+        - {name: limit, in: query, schema: {type: integer}}
+      responses:
+        "200":
+          description: Payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: "#/components/schemas/Payment"}}
+                  has_more: {type: boolean}
+  /payments/{id}:
+    get:
+      operationId: getPayment
+      parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+      responses:
+        "200":
+          description: Payment
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Payment"}
+  /refunds:
+    post:
+      operationId: createRefund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_id]
+              properties:
+                payment_id: {type: string}
+      responses:
+        "201": {description: Created}
+components:
+  schemas:
+    Payment:
+      type: object
+      required: [id, amount, currency, status]
+      properties:
+        id: {type: string}
+        amount: {type: integer}
+        currency: {type: string}
+        status: {type: string, enum: [pending, succeeded, failed]}
