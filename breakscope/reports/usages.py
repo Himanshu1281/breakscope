@@ -47,6 +47,7 @@ def render_json(contract: Contract, index: UsageIndex, scan: ScanResult) -> str:
         "breakscope_version": __version__,
         "summary": {
             "files_scanned": scan.files_scanned,
+            "generated_files": scan.generated_files,
             "call_sites": len(scan.sites),
             "operations": len(contract.operations),
             "operations_used": sum(1 for k in contract.operations if index.by_operation.get(k)),
@@ -113,6 +114,11 @@ def render_terminal(
         f"{len(used)} of {len(contract.operations)} operations used, "
         f"{len(index.unmatched)} unmatched, {len(index.unresolved)} unresolved."
     )
+    if scan.generated_files:
+        console.print(
+            f"[dim]{scan.generated_files} generated client files skipped; "
+            f"calls into them are matched by operationId.[/]"
+        )
     hints = []
     if unused and not show_unused:
         hints.append("--show-unused")

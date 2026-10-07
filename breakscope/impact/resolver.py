@@ -10,6 +10,7 @@ from tree_sitter import Node, Parser
 
 from breakscope.analyzers import is_test_file, iter_source_files, scan_repo
 from breakscope.analyzers.base import CallSite, text, walk
+from breakscope.analyzers.generated import is_generated
 from breakscope.analyzers.javascript import _LANGS as _JS_LANGS
 from breakscope.analyzers.python import _LANG as _PY_LANG
 from breakscope.changes import APIChange, Direction, Severity
@@ -150,7 +151,7 @@ def analyze(
     min_severity: Severity = Severity.WARNING,
 ) -> ImpactReport:
     changes = [c for c in diff_contracts(old, new) if c.severity.rank <= min_severity.rank]
-    scan = scan_repo(repo, exclude)
+    scan = scan_repo(repo, exclude, old)
     # Code is written against the old contract, so match call sites to it.
     index = index_usages(old, scan.sites, base_paths)
     sources = _Sources(repo)
@@ -192,7 +193,7 @@ def analyze(
         for path in iter_source_files(repo, exclude):
             rel = path.relative_to(repo).as_posix()
             parsed = sources.get(rel)
-            if parsed is None:
+            if parsed is None or is_generated(parsed[0]):
                 continue
             source, root, lang = parsed
             for call, name, receiver in _calls_by_name(root, lang, returns.keys()):
@@ -337,7 +338,7 @@ def _component_index(
     for path in iter_source_files(repo, exclude):
         rel = path.relative_to(repo).as_posix()
         parsed = sources.get(rel)
-        if parsed is None or parsed[2] == "python":
+        if parsed is None or parsed[2] == "python" or is_generated(parsed[0]):
             continue
         for n in walk(parsed[1]):
             name: Node | None = None
@@ -395,7 +396,7 @@ def _name_matches(
     for path in iter_source_files(repo, exclude):
         rel = path.relative_to(repo).as_posix()
         parsed = sources.get(rel)
-        if parsed is None:
+        if parsed is None or is_generated(parsed[0]):
             continue
         source, root, _ = parsed
         for n in walk(root):

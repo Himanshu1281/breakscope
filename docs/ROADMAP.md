@@ -156,7 +156,7 @@ On the RealWorld Angular app, the 3 component reads of `Profile.username` moved 
 
 ## M5 — Generated clients and migrations (after 1.0)
 
-- Generated-client mapping: parse `openapi-generator` and `openapi-typescript-codegen` output to map `UsersApi.getUserById` → `GET /users/{id}`
+- ✅ Generated clients: files with generator headers (openapi-generator, openapi-typescript-codegen, orval, openapi-python-client, `@generated`...) are skipped. Calls from your code to a method named after an operationId that the generated code defines (`UsersService.getUser()`, `usersApi.getUser()`, `get_user.sync()`) map to that operation at HIGH confidence. `openapi-fetch` (`client.GET("/users/{id}")`) is supported. Generic ids (`get`, `list`...) and ids under 4 characters are not matched by name.
 - ✅ Rename detection (1.1.0): a removed property plus an added property of the same type and a similar name, or the only one out and the only one in, gives a `renamed_to` hint. Ambiguous cases (`name` → `first_name` / `last_name`) get no hint.
 - `breakscope fix --dry-run` writes a unified diff only. It never edits files.
 - `breakscope explain <METHOD path>`
