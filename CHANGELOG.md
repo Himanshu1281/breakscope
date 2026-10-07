@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0
+
+- **Angular templates.** Reads in `templateUrl` and inline templates are found: `{{ }}`, `[prop]="..."`, `@if (...; as x)`, `@for (x of ...)`, `*ngIf="... as x"` and `*ngFor="let x of ..."`. Pipes are understood.
+- **Angular signals and RxJS:** `this.x.set(v)` / `this.x$.next(v)` and `x()` reads; `combineLatest`, `forkJoin` and `zip` destructuring by position.
+- **Classic Redux:** `dispatch({ type, payload })` and `this.props.onLoad(payload)` through `mapDispatchToProps`, `switch (action.type)` reducers, `combineReducers` slice names and `mapStateToProps` into `this.props` / `props`. Promise middleware payloads (`Promise.all([...])`) are followed.
+- **`breakscope fix --dry-run`:** prints a patch that applies rename hints (`.name` → `.full_name`, `["name"]`, `.get("name")`, `{ name }` → `{ full_name: name }`) at traced reads, for review and `git apply`. Files are never modified.
+- Plain-object API wrappers (`agent.Users.get(...)`) and `.then(namedFunction)` are followed; superagent's `res.body` is understood.
+- Service receivers match singular and plural class names (`articleService` → `ArticlesService`).
+
 ## 1.2.0
 
 - **Generated API clients.** Files with generator headers (openapi-generator, openapi-typescript-codegen, orval, openapi-python-client, `@generated`, ...) are no longer reported as affected code. Calls from your code to methods named after an operationId (`UsersService.getUser()`, `usersApi.getUser()`, `get_user.sync()`) map to that operation.

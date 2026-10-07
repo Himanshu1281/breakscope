@@ -1,4 +1,5 @@
 import io
+import sys
 from contextlib import ExitStack
 from enum import StrEnum
 from pathlib import Path
@@ -8,6 +9,7 @@ import typer
 from rich.console import Console
 
 from breakscope import __version__
+from breakscope import fix as fix_plan
 from breakscope.analyzers import scan_repo
 from breakscope.changes import Severity
 from breakscope.config import CONFIG_FILE, TEMPLATE, find_specs, load_config
@@ -342,6 +344,72 @@ def check(
         if path is not None:
             _emit(report, shown, fmt, path, link_base)
     raise typer.Exit(_exit_code(shown, fail_on or FailOn(cfg.fail_on)))
+
+
+@app.command()
+def fix(
+    old: Annotated[str, typer.Argument(help="Old spec: a path or git:REF:PATH.")],
+    new: Annotated[str, typer.Argument(help="New spec: a path or git:REF:PATH.")],
+    repo: Annotated[Path, typer.Argument(help="Repository to fix.")] = Path("."),
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run/--no-dry-run", help="Print the patch (always on).")
+    ] = True,
+    base_url: Annotated[
+        list[str] | None,
+        typer.Option("--base-url", help="Path prefix your code adds to every URL, e.g. /api/v1."),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None, typer.Option("--exclude", help="Glob of files to skip (repeatable).")
+    ] = None,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write the patch to a file.")
+    ] = None,
+) -> None:
+    """Print a patch for renamed fields (`.name` -> `.full_name`), for review and `git apply`.
+
+    Only fields with a rename hint are fixed, only at reads traced with high or medium
+    confidence. Files are never modified.
+    """
+    err = Console(stderr=True, highlight=False)
+    if not dry_run:
+        err.print("BreakScope only prints patches; apply them with `git apply`.", markup=False)
+        raise typer.Exit(EXIT_ERROR)
+    if not repo.is_dir():
+        err.print(f"error: repository directory not found: {repo}", markup=False)
+        raise typer.Exit(EXIT_ERROR)
+    try:
+        with open_spec(old) as old_path, open_spec(new) as new_path:
+            report = run_analysis(
+                load_contract(old_path),
+                load_contract(new_path),
+                repo,
+                base_paths=base_url or (),
+                exclude=tuple(exclude or ()),
+            )
+    except BreakScopeError as e:
+        err.print(e.render(), markup=False)
+        raise typer.Exit(EXIT_ERROR) from None
+
+    planned = fix_plan.plan(report, report.impacts, repo)
+    patch = fix_plan.render(planned, repo)
+    if output is not None:
+        # Bytes, not text mode: the patch carries each file's own line endings.
+        output.write_bytes(patch.encode("utf-8"))
+    else:
+        sys.stdout.flush()
+        sys.stdout.buffer.write(patch.encode("utf-8"))
+        sys.stdout.buffer.flush()
+
+    files = len({e.file for e in planned.edits})
+    for subject, to in sorted(planned.renames.items()):
+        err.print(f"rename: {subject} -> {to}", markup=False)
+    err.print(f"{len(planned.edits)} edits in {files} files.", markup=False)
+    for impact, reason in planned.skipped:
+        err.print(f"skipped {impact.file}:{impact.line}: {reason}", markup=False)
+    if planned.renames:
+        err.print(
+            "Also update type definitions and fixtures that mention the old names.", markup=False
+        )
 
 
 _WORKFLOW = """\
