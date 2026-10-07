@@ -1,5 +1,6 @@
 """Join contract changes, call sites and response data flow into impacts."""
 
+import posixpath
 import re
 from collections import defaultdict
 from collections.abc import Iterable
@@ -17,7 +18,7 @@ from breakscope.changes import APIChange, Direction, Severity
 from breakscope.contracts.diff import diff_contracts
 from breakscope.contracts.model import Contract, OperationKey
 from breakscope.contracts.normalize import operation_key
-from breakscope.impact import redux
+from breakscope.impact import angular, redux
 from breakscope.impact.flow import (
     Access,
     FlowResult,
@@ -164,9 +165,13 @@ def analyze(
     returns: dict[str, list[_Return]] = defaultdict(list)
     props: list[tuple[OperationKey, CallSite, str, dict[str, Value]]] = []
 
+    templates: list[tuple[OperationKey, CallSite, Confidence, FlowResult, str]] = []
+
     def keep(key: OperationKey, site: CallSite, conf: Confidence, r: FlowResult, via: str) -> None:
         traces[key].append(_Trace(key, site, conf, r.accesses, via))
         props.extend((key, site, component, p) for component, p in r.props)
+        if r.fields and r.template is not None:
+            templates.append((key, site, conf, r, via))
 
     # 1. Direct flow from every call site.
     for key, usages in index.by_operation.items():
@@ -249,6 +254,36 @@ def analyze(
                     result = JSFlow(source, call, payload.value).run()
                     site = _site_for(call, rel, lang, source, payload.origin)
                     keep(payload.key, site, Confidence.MEDIUM, result, f"via Redux {label}")
+
+    # 2d. Angular templates of components whose fields hold response data.
+    seen_templates: set[tuple[OperationKey, str, int]] = set()
+    for key, site, conf, r, via in templates:
+        assert r.template is not None
+        kind, ref = r.template
+        if kind == "url":
+            html_rel = (PurePosixPath(site.file).parent / str(ref)).as_posix()
+            html_rel = posixpath.normpath(html_rel)
+            try:
+                text_ = (repo / html_rel).read_text(encoding="utf-8")
+            except OSError:
+                continue
+            target, start, end = html_rel, 0, len(text_)
+        else:
+            parsed = sources.get(site.file)
+            if parsed is None or not isinstance(ref, Node):
+                continue
+            raw = parsed[0]
+            text_ = raw.decode("utf-8", errors="replace")
+            start = len(raw[: ref.start_byte].decode("utf-8", errors="replace"))
+            end = len(raw[: ref.end_byte].decode("utf-8", errors="replace"))
+            target = site.file
+        mark = (key, target, start)
+        if mark in seen_templates:
+            continue
+        seen_templates.add(mark)
+        found = angular.template_accesses(text_, start, end, r.fields)
+        label = (via + " " if via else "") + "in template"
+        traces[key].append(_Trace(key, site, conf, found, label.strip(), file=target))
 
     # 3. Map each change to locations.
     for change in changes:
@@ -354,7 +389,15 @@ def _receiver_matches(receiver: str | None, class_name: str | None) -> bool:
     """`this.userService` / `self.user_service` / `userService` name the UserService class."""
     if not receiver or not class_name:
         return False
-    return _norm(receiver.rsplit(".", 1)[-1]) == _norm(class_name)
+    return _singular_words(receiver.rsplit(".", 1)[-1]) == _singular_words(class_name)
+
+
+def _singular_words(name: str) -> str:
+    """`ArticlesService` and `articleService` both -> "articleservice": instances are often
+    named in the singular while the class is plural, or the other way round."""
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", spaced.lower()) if w]
+    return "".join(w[:-1] if len(w) > 3 and w.endswith("s") else w for w in words)
 
 
 def _component_index(
