@@ -64,19 +64,58 @@ breakscope analyze examples/demo/api/openapi-v1.yaml examples/demo/api/openapi-v
 
 Static analysis can't be perfect, so BreakScope tells you how sure it is instead of pretending. Accuracy on the test corpus is tracked in CI: see [docs/accuracy.md](https://github.com/Himanshu1281/breakscope/blob/main/docs/accuracy.md).
 
+## GitHub Action
+
+Add `.github/workflows/breakscope.yml` (or run `breakscope init --workflow`):
+
+```yaml
+name: BreakScope
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write # to post the report comment
+
+jobs:
+  api-impact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: Himanshu1281/breakscope@v0.5.0
+        with:
+          spec: api/openapi.yaml # or set it in .breakscope.yml
+```
+
+On every pull request it compares the spec with the base branch. It posts one comment with the affected code and keeps it updated on later pushes, adds the report to the job summary, and fails the job when affected code at `fail-on` risk is found.
+
+| Input | Default | |
+|---|---|---|
+| `spec` | from `.breakscope.yml` | Spec path in the repository |
+| `base` | the PR's base branch | Git ref to compare against |
+| `fail-on` | `high` | `high`, `medium`, `low` or `never` |
+| `min-confidence` | `medium` | Hide less certain locations |
+| `comment` | `true` | Post and update the PR comment |
+| `sarif-file` | | Also write SARIF for `github/codeql-action/upload-sarif` |
+
+Outputs: `risk`, `breaking-changes`, `locations`, `report` (path to the Markdown report).
+
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `breakscope analyze OLD NEW [REPO]` | Changes → affected `file:line`. Exit 1 if anything at `--fail-on` risk (default `high`). |
+| `breakscope check` | CI mode: compares the spec with the base branch, using `.breakscope.yml`. Writes `--markdown`, `--sarif` and `--json` reports. |
+| `breakscope init` | Creates `.breakscope.yml`, and with `--workflow` the GitHub Actions workflow. |
 | `breakscope diff OLD NEW` | Contract changes only. Exit 1 on breaking changes. |
 | `breakscope usages SPEC [REPO]` | Where your code calls each operation. |
 
-All commands take `--format json` and `--output FILE`. `analyze` and `usages` take `--base-url /api/v1` (a path prefix your code adds) and `--exclude GLOB`.
+Specs can be read from git: `breakscope diff git:origin/main:api/openapi.yaml api/openapi.yaml`. `analyze` also takes `--format markdown|sarif`. `analyze` and `usages` take `--base-url /api/v1` (a path prefix your code adds) and `--exclude GLOB`.
 
 No account, no API key, no hosted service. Everything runs locally.
 
-**Status:** v0.4: impact analysis. Supports OpenAPI 3.0/3.1, Python, TypeScript and JavaScript. See the [roadmap](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md).
+**Status:** v0.5: impact analysis, CI mode and the GitHub Action. Supports OpenAPI 3.0/3.1, Python, TypeScript and JavaScript. See the [roadmap](https://github.com/Himanshu1281/breakscope/blob/main/docs/ROADMAP.md).
 
 ## License
 
