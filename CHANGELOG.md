@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+
+- **Generated API clients.** Files with generator headers (openapi-generator, openapi-typescript-codegen, orval, openapi-python-client, `@generated`, ...) are no longer reported as affected code. Calls from your code to methods named after an operationId (`UsersService.getUser()`, `usersApi.getUser()`, `get_user.sync()`) map to that operation.
+- **openapi-fetch:** `client.GET("/users/{id}")`.
+- **Redux Toolkit:** data from a `createAsyncThunk` is followed into the slice (`addCase(thunk.fulfilled, ...)`), and from the store into every `useSelector` that reads it (inline or named selectors), at medium confidence.
+- **RTK Query:** `createApi` endpoints are call sites at their hooks (`useGetUserQuery`, `useLazy...Query`, `use...Mutation`).
+- Classic Redux (hand-written action types, `switch` reducers, promise middleware) is not followed yet.
+
 ## 1.1.0
 
 - **Rename hints.** When a property is removed and a same-typed one is added in the same object, BreakScope says it was probably renamed: `name` → `full_name`, `userId` → `user_id`, or `username` → `handle` when it's the only property out and the only one in. Reports say "replace `.name` with `.full_name`"; ambiguous cases get no hint rather than a guess.

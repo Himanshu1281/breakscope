@@ -103,6 +103,8 @@ class JSFlow:
         *,
         component: Node | None = None,
         props: dict[str, Value] | None = None,
+        seed: dict[str, Value] | None = None,
+        store_param: str | None = None,
     ) -> None:
         self.source = source
         self.call = call
@@ -112,7 +114,10 @@ class JSFlow:
         else:
             assert call is not None
             self.scope = outermost_function(call, FUNCTIONS, _CLASS)
-        self.env: dict[str, Value] = {}
+        self.env: dict[str, Value] = dict(seed or {})
+        # Redux reducers: `state.current = action.payload` writes store slot "current".
+        self.store_param = store_param
+        self.store_writes: dict[str, Value] = {}
         self.setters: dict[str, str] = {}  # setUser -> user (React useState)
         self.accesses: dict[tuple[int, int, tuple[str, ...]], Access] = {}
         # Props this code passes to child components: (Component, {prop: value}).
@@ -299,8 +304,11 @@ class JSFlow:
                 self.env[text(left)] = v
             elif left.type == "member_expression":
                 obj = left.child_by_field_name("object")
+                prop = text(left.child_by_field_name("property"))
                 if obj is not None and obj.type == "this":
-                    self.env[f"this.{text(left.child_by_field_name('property'))}"] = v
+                    self.env[f"this.{prop}"] = v
+                elif self.store_param and obj is not None and text(obj) == self.store_param:
+                    self.store_writes[prop] = v
         elif t in ("jsx_self_closing_element", "jsx_opening_element"):
             self._jsx_props(n)
         elif t == "for_in_statement":
@@ -500,6 +508,13 @@ def _function_name(fn: Node) -> str | None:
         return text(parent.child_by_field_name("name")) or None
     if parent is not None and parent.type == "pair":
         return text(parent.child_by_field_name("key")) or None
+    # `const fetchUser = createAsyncThunk("users/fetch", async (id) => {...})`: the payload
+    # creator's result becomes `action.payload` in `fetchUser.fulfilled` reducers.
+    call = parent.parent if parent is not None and parent.type == "arguments" else None
+    if call is not None and text(call.child_by_field_name("function")).endswith("createAsyncThunk"):
+        decl = call.parent
+        if decl is not None and decl.type == "variable_declarator":
+            return text(decl.child_by_field_name("name")) or None
     return None
 
 

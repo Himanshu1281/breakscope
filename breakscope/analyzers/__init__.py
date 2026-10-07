@@ -6,6 +6,7 @@ from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
+from breakscope.analyzers import rtk
 from breakscope.analyzers.base import Analyzer, CallSite
 from breakscope.analyzers.generated import OperationIndex, client_calls, is_generated
 from breakscope.analyzers.javascript import JavaScriptAnalyzer
@@ -119,6 +120,15 @@ def scan_repo(
         analyzer = analyzers[path.suffix]
         own.append((rel, source, analyzer))
         result.sites += analyzer.scan(source, str(rel), is_test=is_test_file(rel))
+
+    # RTK Query: endpoints are declared once (createApi) and called through hooks anywhere.
+    js_files = [(rel, src, an, an.parse(src)) for rel, src, an in own if an.language != "python"]
+    eps = [ep for _, _, _, root_node in js_files for ep in rtk.endpoints(root_node)]
+    if eps:
+        for rel, source, analyzer, root_node in js_files:
+            result.sites += rtk.hook_calls(
+                root_node, source, str(rel), analyzer.language, eps, is_test=is_test_file(rel)
+            )
 
     if contract is not None and generated:
         index = OperationIndex(contract, generated)

@@ -122,7 +122,7 @@ Three gaps closed, each with new corpus cases that include look-alike lines whic
 
 On the RealWorld Angular app, the 3 component reads of `Profile.username` moved from LOW to MEDIUM (traced via `ProfileService.get()`). The remaining gaps:
 - **Angular `.html` templates.** That's where `article.title` is read. Parsing them is the next big Angular win.
-- **Redux:** action payload → reducer → store → `mapStateToProps`/`useSelector`. The React app is still LOW only.
+- **Redux:** ✅ Redux Toolkit (1.2.0): `createAsyncThunk` → `addCase(x.fulfilled)` → slice field → `useSelector` (inline or named selectors), plus RTK Query hooks as call sites. Classic Redux (action-type constants, `switch` reducers, promise middleware, `mapStateToProps`) is still open; the RealWorld React app uses it and stays LOW.
 - **Test doubles held in generically named variables** (`service = TestBed.inject(ArticlesService)`).
 
 ---
