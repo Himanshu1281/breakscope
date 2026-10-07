@@ -184,7 +184,8 @@ def test_init_detects_spec_and_writes_workflow(tmp_path: Path) -> None:
     cfg = load_config(tmp_path / ".breakscope.yml")
     assert cfg.spec == "docs/openapi.yaml"
     wf = (tmp_path / ".github" / "workflows" / "breakscope.yml").read_text(encoding="utf-8")
-    assert "fetch-depth: 0" in wf and "Himanshu1281/breakscope@v" in wf
+    assert "fetch-depth: 0" in wf
+    assert "uses: Himanshu1281/breakscope@v1\n" in wf
     # A second run must not overwrite.
     assert runner.invoke(app, ["init", "--repo", str(tmp_path)]).exit_code == 2
 

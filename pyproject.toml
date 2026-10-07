@@ -9,6 +9,19 @@ description = "See what your API changes will break in your code."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+authors = [{ name = "Himanshu Sekhar Das" }]
+keywords = ["openapi", "api", "breaking-changes", "static-analysis", "impact-analysis", "ci"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
     "typer>=0.12",
     "rich>=13",
@@ -19,6 +32,12 @@ dependencies = [
     "tree-sitter-javascript>=0.23",
     "tree-sitter-typescript>=0.23",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Himanshu1281/breakscope"
+Documentation = "https://github.com/Himanshu1281/breakscope#readme"
+Changelog = "https://github.com/Himanshu1281/breakscope/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Himanshu1281/breakscope/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "syrupy>=4", "ruff>=0.6", "mypy>=1.11", "types-PyYAML"]
