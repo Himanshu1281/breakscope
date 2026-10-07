@@ -10,44 +10,29 @@ pip install breakscope
 breakscope analyze openapi-old.yaml openapi-new.yaml path/to/repo
 ```
 
-```text
-API IMPACT ANALYSIS
-────────────────────────────────────────────────
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Himanshu1281/breakscope/main/docs/images/analyze.svg" alt="breakscope analyze output: User.name was removed, and two places read it: backend/services/user_report.py:12 and frontend/src/components/UserProfile.tsx:18" width="720">
+</p>
 
-BREAKING CHANGES: 4
-
-1. User.name  (response.property.removed)
-   A response property was removed. In GET /users, POST /users, GET /users/{userId}.
-
-   Likely affected code:
-
-   🔴 backend/services/user_report.py:12
-      return resp.json()["name"]
-                         ^^^^^^
-
-   🔴 frontend/src/components/UserProfile.tsx:18
-      <h1>{user.name}</h1>
-                ^^^^
-
-2. DELETE /users/{id}
-   DELETE /users/{id} was removed  (endpoint.removed)
-
-   Likely affected code:
-
-   🔴 frontend/src/api/users.ts:22
-      await axios.delete(API_URL + "/users/" + id);
-...
-────────────────────────────────────────────────
-Files affected: 3
-Locations affected: 4
-Risk: HIGH
-```
-
-Try it on the demo:
+Try it on the demo in this repository:
 
 ```bash
 breakscope analyze examples/demo/api/openapi-v1.yaml examples/demo/api/openapi-v2.yaml examples/demo
 ```
+
+### On every pull request
+
+The [GitHub Action](#github-action) posts the same analysis as a PR comment. It keeps that one comment updated on later pushes, and fails the check when affected code is found. **[See a live example →](https://github.com/Himanshu1281/breakscope-demo/pull/2)**
+
+> ## 🔴 BreakScope: 1 breaking API change, 1 affected location
+>
+> **Risk: HIGH** · 1 file affected
+>
+> ### 1. `User.email`: A response property was removed. In `GET /users`, `POST /users`, `GET /users/{userId}`.
+>
+> | | Location | Code | Confidence |
+> |---|---|---|---|
+> | 🔴 | [`frontend/src/components/UserProfile.tsx:19`](https://github.com/Himanshu1281/breakscope-demo/blob/07a97b894160ddc1932eb507129b38c018e27ed1/frontend/src/components/UserProfile.tsx#L19) | `<p>{user.email}</p>` | high |
 
 ## How it works
 

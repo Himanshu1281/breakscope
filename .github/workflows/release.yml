@@ -41,3 +41,20 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  major-tag:
+    # Point the major tag (v1, v2, ...) at this release, so `uses: Himanshu1281/breakscope@v1`
+    # follows the latest 1.x. Pre-releases and 0.x versions are left alone.
+    needs: publish
+    if: ${{ !github.event.release.prerelease && !startsWith(github.ref_name, 'v0.') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Move major tag
+        run: |
+          major="${GITHUB_REF_NAME%%.*}"
+          git tag -f "$major" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$major"
+          echo "Moved $major to $GITHUB_REF_NAME ($GITHUB_SHA)"
